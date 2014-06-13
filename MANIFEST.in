@@ -1,0 +1,5 @@
+include README.rst
+include LICENSE
+include ez_setup.py
+include synapse *.py *.pyw
+include synapse/syn.ico
