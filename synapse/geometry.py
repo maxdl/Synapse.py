@@ -350,6 +350,7 @@ class Vec(Point):
 
 class SegmentedPath(list):
     def __init__(self, pointli=None):
+        super(SegmentedPath, self).__init__()
         if pointli is None:
             pointli = []
         try:
@@ -357,94 +358,7 @@ class SegmentedPath(list):
         except (AttributeError, IndexError):
             raise TypeError('not a list of Point elements')
 
-    def length(self):
-        """Return length of a segmented path (assume path is open)"""
-        if len(self) == 0:
-            return 0.0
-        length = 0.0
-        for n in range(0, len(self) - 1):
-            if (self[n].x != -1) and (self[n + 1].x != -1):
-                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
-                                    (self[n + 1].y - self[n].y) ** 2)
-        return length
-
-    def perimeter(self):
-        """Return length of a segmented path (assume path is closed)"""
-        return self.length() + math.sqrt((self[-1].x - self[0].x) ** 2 +
-                                         (self[-1].y - self[0].y) ** 2)
-
-    def center_point(self):
-        """ Return center point of a segmented path (assume path is
-            open)
-        """
-        if len(self) == 1:
-            return Point(self[0].x, self[0].y)
-        r = self.length() / 2
-        length = 0.0
-        for n in range(0, len(self) - 1):
-            v = Vec(self[n + 1].x - self[n].x, self[n + 1].y - self[n].y)
-            length += v.length()
-            if length >= r:
-                break
-        return self[n] + ((v.length() - (length - r)) / v.length()) * v
-
-    def signed_area(self):
-        """Return signed area of polygon (assume path is closed)"""
-        if len(self) < 3:
-            return 0.0
-        a = (self[0].x - self[-1].x) * (self[-1].y + self[0].y)
-        for n in range(0, len(self) - 1):
-            a += (self[n + 1].x - self[n].x) * (self[n].y + self[n + 1].y)
-        return float(a) / 2
-
-    def area(self):
-        """Return area of polygon (assume path is closed)"""
-        try:
-            return abs(self.signed_area())
-        except TypeError:
-            return None
-
-    def contains(self, p):
-        """  Determine whether point p is inside polygon (assumes closed path);
-             Uses the crossing number method => works only with simple
-             polygons.
-        """
-        if not p:
-            return None
-        return p.is_within_polygon(self)
-
-    def centroid(self):
-        """  Return centroid (center of gravity) of a polygon (assume closed
-             path and no crossing vertices)
-        """
-        a_tot = self.signed_area()
-        if a_tot == 0:
-            return self.center_point()
-        cx, cy = 0., 0.
-        for n in range(1, len(self) - 1):
-            a_t = SegmentedPath([self[0], self[n], self[n + 1]]).signed_area()
-            # weighted centroid of triangle
-            cx += (self[0].x + self[n].x + self[n + 1].x) * a_t
-            cy += (self[0].y + self[n].y + self[n + 1].y) * a_t
-        return Point(cx / (3 * a_tot), cy / (3 * a_tot))
-
     def is_oriented_to_path(self, path):
-        """ 2014-06-18: Use is_oriented_to_path1(), because I think
-            is_oriented_to_path2() only works for closed paths.
-
-            [Ok, so this is to investigate whether they both work
-            I will test this for a while and then remove one version.
-            Sorry for the overhead in the meantime :)]
-        """
-        o1 = self.is_oriented_to_path1(path)
-        #o2 = self.is_oriented_to_path2(path)
-        #if o1 != o2:
-        #    sys.stdout.write("is_oriented_to_path1: %s\n" % o1)
-        #    sys.stdout.write("is_oriented_to_path2: %s\n" % o2)
-        #    raise RuntimeError("is_oriented_to_path funcs do not match")
-        return o1
-        
-    def is_oriented_to_path1(self, path):
         p0, node0 = self[0].project_on_path_or_endnode(path)
         pn, node_n = self[-1].project_on_path_or_endnode(path)
         if node0 > node_n:
@@ -460,38 +374,13 @@ class SegmentedPath(list):
                 return False
         return True
 
-    def is_oriented_to_path2(self, path):
-        """ The above function seems a bit naive and convoluted, and does it
-            really work for all cases?
-            This version uses the fact that if the signed area of a polygon is
-            positive, then the orientation is counter-clockwise. Thus, simply
-            compare the signs of the signed areas.
-            See comp.graphics.algorithms FAQ 2.07.
-
-            No, wait; this only works for closed paths!
-        """
-        if self.signed_area() * path.signed_area() > 0:  # same sign?
-            return True
-        return False
-
     def orient_to_path(self, path):
         if not self.is_oriented_to_path(path):
             self.reverse()
 
-    def check_open_path(self):
-        """ Make sure that the open path does not intersect with itself
-            Uses the naive algorithm of checking every segment against
-            every other segment.
-        """
-        for n1 in range(0, len(self) - 3):
-            for n2 in range(n1 + 2, len(self) - 1):
-                if segment_intersection(self[n1], self[n1 + 1],
-                                        self[n2], self[n2 + 1]):
-                    return False
-        return True
-
     def bounding_box(self):
         """ Determines bounding box of self.
+            Returns ClosedPath.
         """
         hix = lox = self[0].x
         hiy = loy = self[0].y
@@ -504,8 +393,80 @@ class SegmentedPath(list):
                 hiy = n.y
             elif n.y < loy:
                 loy = n.y
-        return SegmentedPath([Point(lox, loy), Point(hix, loy),
-                              Point(hix, hiy), Point(lox, hiy)])
+        return ClosedPath([Point(lox, loy), Point(hix, loy),
+                           Point(hix, hiy), Point(lox, hiy)])
+
+# end of class SegmentedPath
+
+
+class ClosedPath(SegmentedPath):
+    def __init__(self, pointli=None):
+        super(ClosedPath, self).__init__(pointli)
+
+    def perimeter(self):
+        """ Return length of polygon
+        """
+        if len(self) == 0:
+            return 0.0
+        length = 0.0
+        for n in range(0, len(self) - 1):
+            if (self[n].x != -1) and (self[n + 1].x != -1):
+                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
+                                    (self[n + 1].y - self[n].y) ** 2)
+        length += math.sqrt((self[-1].x - self[0].x) ** 2 +
+                            (self[-1].y - self[0].y) ** 2)
+        return length
+
+    def length(self):
+        """ Return length of polygon
+        """
+        return self.perimeter()
+
+    def signed_area(self):
+        """ Return signed area of polygon
+        """
+        if len(self) < 3:
+            # Shouldn't happen
+            return None
+            #return 0.0
+        a = (self[0].x - self[-1].x) * (self[-1].y + self[0].y)
+        for n in range(0, len(self) - 1):
+            a += (self[n + 1].x - self[n].x) * (self[n].y + self[n + 1].y)
+        return float(a) / 2
+
+    def area(self):
+        """ Return area of polygon
+        """
+        try:
+            return abs(self.signed_area())
+        except TypeError:
+            return None
+
+    def contains(self, p):
+        """  Determine whether point p is inside polygon;
+             Uses the crossing number method => works only with simple
+             polygons.
+        """
+        if not p:
+            return None
+        return p.is_within_polygon(self)
+
+    def centroid(self):
+        """  Return centroid (center of gravity) of a polygon (assume
+             no crossing vertices)
+        """
+        a_tot = self.signed_area()
+        if a_tot == 0:
+            # Shouldn't happen
+            return None
+            #return self.center_point()
+        cx, cy = 0., 0.
+        for n in range(1, len(self) - 1):
+            a_t = ClosedPath([self[0], self[n], self[n + 1]]).signed_area()
+            # weighted centroid of triangle
+            cx += (self[0].x + self[n].x + self[n + 1].x) * a_t
+            cy += (self[0].y + self[n].y + self[n + 1].y) * a_t
+        return Point(cx / (3 * a_tot), cy / (3 * a_tot))
 
     def is_simple_polygon(self):
         """ Makes sure that the closed path self is a simple polygon,
@@ -548,11 +509,52 @@ class SegmentedPath(list):
         return False
 
 
-# end of class SegmentedPath
+class OpenPath(SegmentedPath):
+    def __init__(self, pointli=None):
+        super(OpenPath, self).__init__(pointli)
+
+    def length(self):
+        """ Return length of the path
+        """
+        if len(self) == 0:
+            return 0.0
+        length = 0.0
+        for n in range(0, len(self) - 1):
+            if (self[n].x != -1) and (self[n + 1].x != -1):
+                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
+                                    (self[n + 1].y - self[n].y) ** 2)
+        return length
+
+    def center_point(self):
+        """ Return center point of the path
+        """
+        if len(self) == 1:
+            return Point(self[0].x, self[0].y)
+        r = self.length() / 2
+        length = 0.0
+        for n in range(0, len(self) - 1):
+            v = Vec(self[n + 1].x - self[n].x, self[n + 1].y - self[n].y)
+            length += v.length()
+            if length >= r:
+                break
+        return self[n] + ((v.length() - (length - r)) / v.length()) * v
+
+    def check_open_path(self):
+        """ Make sure that the open path does not intersect with itself
+            Uses the naive algorithm of checking every segment against
+            every other segment.
+        """
+        for n1 in range(0, len(self) - 3):
+            for n2 in range(n1 + 2, len(self) - 1):
+                if segment_intersection(self[n1], self[n1 + 1],
+                                        self[n2], self[n2 + 1]):
+                    return False
+        return True
+
 
 def to_metric_units(l, pixelwidth):
-    """Scale length l (in pixels) to metric units,
-       using supplied pixel width
+    """ Scale length l (in pixels) to metric units, using supplied
+        pixel width
     """
     try:
         return l * pixelwidth
@@ -645,7 +647,7 @@ def convex_hull(pointli):
     """Determine the convex hull of the points in pointli.
 
     Uses Graham's algorithm after O'Rourke (1998).
-    Returns a SegmentedPath.
+    Returns a ClosedPath.
     """
 
     def signed_area(a, b, c):
@@ -712,4 +714,4 @@ def convex_hull(pointli):
             i += 1
         else:
             stack.pop()
-    return SegmentedPath(stack)
+    return ClosedPath(stack)

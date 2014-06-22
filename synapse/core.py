@@ -51,18 +51,18 @@ class Point(geometry.Point):
         self.is_presynaptic_membrane_associated = None
         self.cluster = None
 
-    def get_dist_to_posel(self, profile):
+    def get_dist_to_posel(self):
         """ Determines the perpendicular distance to the outline of the
             postsynptic element
         """
         dist_to_posel = self.perpend_dist(self.profile.posel,
-                                          posloc=profile.postsynloc)
+                                          posloc=self.profile.postsynloc)
         if dist_to_posel is None and self.ptype == "particle":
             self.skipped = True
             if self.ptype == "particle":
-                profile_warning(profile, "Unable to project on postsynaptic "
-                                         "element\n   => skipping particle at"
-                                         " %s" % self)
+                profile_warning(self.profile,
+                                "Unable to project on postsynaptic element\n"
+                                "  => skipping particle at %s" % self)
         return dist_to_posel
 
     def get_dist_to_prsel(self):
@@ -83,7 +83,7 @@ class Point(geometry.Point):
         # A point is classified as synaptic if its projection on the
         # postsynaptic membrane is within the spatial resolution limit 
         # of the postsynaptic membrane
-        for psd in self.self.profile.psdli:
+        for psd in self.profile.psdli:
             if (self.lateral_dist_syn(self.profile.posel, psd.posm) -
                     self.profile.spatial_resolution_in_pixels <=
                     psd.posm.length() / 2.0):
@@ -282,7 +282,7 @@ class Point(geometry.Point):
             Overrides function in geometry.Point, which only works
             with a closed path.
         """
-        path = geometry.SegmentedPath()
+        path = geometry.OpenPath()
         p2_project, p2_seg_project = p2.project_on_path_or_endnode(sel)
         project, seg_project = self.project_on_path_or_endnode(sel)
         path.extend([project, p2_project])
@@ -308,14 +308,14 @@ class PointList(list):
             raise TypeError('not a list of Point elements')
         
 
-class PSD(geometry.SegmentedPath):
+class PSD(geometry.ClosedPath):
     def __init__(self, pointli, profile):
-        geometry.SegmentedPath.__init__(self, pointli)
+        super(geometry.ClosedPath, self).__init__(pointli)
         self.profile = profile
-        self.posm = geometry.SegmentedPath()
-        self.prsm = geometry.SegmentedPath()
-        self.psdposm = geometry.SegmentedPath()
-        self.cleft = geometry.SegmentedPath()
+        self.posm = geometry.OpenPath()
+        self.prsm = geometry.OpenPath()
+        self.psdposm = geometry.ClosedPath()
+        self.cleft = geometry.ClosedPath()
         self.cleft_width = None
 
     def adjust_psd(self):
@@ -325,7 +325,7 @@ class PSD(geometry.SegmentedPath):
         # Partition psd into paths defined by the intersections with posel,
         # beginning and ending with the projections of the end nodes of psd.
         # Each path will then be completely on one side of posel.
-        pathli = [geometry.SegmentedPath()]
+        pathli = [geometry.OpenPath()]
         pathli[0].append(self[0].project_on_path_or_endnode(
             self.profile.posel)[0])
         p = geometry.Point()
@@ -339,15 +339,16 @@ class PSD(geometry.SegmentedPath):
                     break
             if p:
                 pathli[-1].append(p)
-                pathli.append(geometry.SegmentedPath())
+                pathli.append(geometry.OpenPath())
                 pathli[-1].append(p)
         pathli[-1].append(self[-1])
-        pathli[-1].append(self[-1].project_on_path_or_endnode(self.profile.posel)[0])
+        pathli[-1].append(self[-1].project_on_path_or_endnode(
+            self.profile.posel)[0])
         # Now, look for the longest path. This is assumed to be the intended
         # psd. (Perhaps area is more relevant. However, this is messier because
         # we need to determine the part of dm enclosed by path for each path.)
         maxlength = 0
-        longest_path = geometry.SegmentedPath()
+        longest_path = geometry.OpenPath()
         for path in pathli:
             length = path.length()
             if length > maxlength:
@@ -364,7 +365,7 @@ class PSD(geometry.SegmentedPath):
             postsynaptic element, and that the PSD is oriented in the
             same direction as posm (ie node1 <= node2).
         """
-        posm = geometry.SegmentedPath()
+        posm = geometry.OpenPath()
         p1, node1 = self[0].project_on_path_or_endnode(self.profile.posel)
         p2, node2 = self[-1].project_on_path_or_endnode(self.profile.posel)
         if not None in (node1, node2):
@@ -373,7 +374,7 @@ class PSD(geometry.SegmentedPath):
             posm.append(p2)
         if len(posm) == 0 or posm.length() == 0:
             raise ProfileError(self.profile, "Could not determine postsynaptic "
-                                        "membrane")
+                                             "membrane")
         # It appears that sometimes the first or last nodes get 
         # duplicated, resulting in a zero vector and division by zero 
         # when projecting on posm. Simply checking for the duplicated
@@ -394,7 +395,7 @@ class PSD(geometry.SegmentedPath):
         return posm
 
     def get_prsm(self):
-        prsm = geometry.SegmentedPath()
+        prsm = geometry.OpenPath()
         p1, node1 = self[0].project_on_path_or_endnode(self.profile.prsel)
         p2, node2 = self[-1].project_on_path_or_endnode(self.profile.prsel)
         if not None in (node1, node2):
@@ -428,7 +429,7 @@ class PSD(geometry.SegmentedPath):
             posm. Assume that PSD and posm share end nodes and that 
             they are oriented in the same direction. 
         """
-        pol = geometry.SegmentedPath()
+        pol = geometry.ClosedPath()
         pol.extend(self.posm)
         pol.reverse()
         pol.extend(self[1:-1])
@@ -440,7 +441,7 @@ class PSD(geometry.SegmentedPath):
             segments formed by projecting the end nodes of prsm onto 
             posm, and the part of posm between these projections.  
         """
-        pol = geometry.SegmentedPath()
+        pol = geometry.ClosedPath()
         if len(self.profile.prsel) == 0:
             return pol
         proj0, seg0 = self.prsm[0].project_on_path_or_endnode(self.posm)
@@ -494,7 +495,7 @@ class ProfileData:
         self.warnflag = False
         self.errflag = False
         self.spatial_resolution_in_pixels = None
-        self.total_posm = geometry.SegmentedPath()
+        self.total_posm = geometry.OpenPath()
         self.postsynloc = geometry.Point()
         self.pli = []
         self.gridli = []
@@ -508,7 +509,7 @@ class ProfileData:
             self._check_paths()
             sys.stdout.write("Processing profile...\n")
             self.spatial_resolution_in_pixels = geometry.to_pixel_units(
-                opt.spatial_resolution,
+                self.opt.spatial_resolution,
                 self.pixelwidth)
             self.prsel.orient_to_path(self.posel)
             for p in self.psdli:
@@ -525,18 +526,18 @@ class ProfileData:
             for p in self.pli:
                 p.determine_stuff(self.pli)
             self.pli = [p for p in self.pli if not p.skipped]
-            if opt.useGrid:
+            if self.opt.useGrid:
                 for g in self.gridli:
                     g.determine_stuff(self.gridli)
                 self.gridli = [g for g in self.gridli if not g.skipped]
-            if opt.useRandom:
+            if self.opt.useRandom:
                 for r in self.randomli:
                     r.determine_stuff(self.randomli)
                 self.randomli = [r for r in self.randomli if not r.skipped]
             self._get_inter_distlis()
             self._get_clusters()
             self._get_monte_carlo()
-            if opt.stop_requested:
+            if self.opt.stop_requested:
                 return
             sys.stdout.write("Done.\n")
             if self.opt.outputs['individual profiles']:
@@ -550,7 +551,7 @@ class ProfileData:
             self.mcli = []
         else:
             sys.stdout.write("Running Monte Carlo simulations...\n")
-            self.mcli = self._run_monte_carlo(self.opt)
+            self.mcli = self._run_monte_carlo()
 
     def _get_inter_distlis(self):
         if not self.opt.determine_interpoint_dists:
@@ -643,26 +644,26 @@ class ProfileData:
                 return True
             if (self.opt.monte_carlo_simulation_window ==
                     "synapse + perisynapse" and latloc in
-                ("synaptic", "within perforation", "perisynaptic")):
+                    ("synaptic", "within perforation", "perisynaptic")):
                 return True
             # TODO : include PSD as a window option
             return False
 
         pli = self.pli
-        if opt.monte_carlo_strict_location:
+        if self.opt.monte_carlo_strict_location:
             locvar = "strict_lateral_location"
         else:
             locvar = "lateral_location"
-        if opt.monte_carlo_simulation_window == "whole profile":
+        if self.opt.monte_carlo_simulation_window == "whole profile":
             # particles outside shell have been discarded
             numpoints = len(pli)
-        elif opt.monte_carlo_simulation_window == "synapse":
+        elif self.opt.monte_carlo_simulation_window == "synapse":
             numpoints = len([p for p in pli if p.__dict__[locvar] in
                              ("synaptic", "within perforation")])
-        elif opt.monte_carlo_simulation_window == "synapse - perforations":
+        elif self.opt.monte_carlo_simulation_window == "synapse - perforations":
             numpoints = len([p for p in pli
                              if p.__dict__[locvar] == "synaptic"])
-        elif opt.monte_carlo_simulation_window == "synapse + perisynapse":
+        elif self.opt.monte_carlo_simulation_window == "synapse + perisynapse":
             numpoints = len([p for p in pli if p.__dict__[locvar] in
                              ("synaptic", "within perforation",
                               "perisynaptic")])
@@ -674,10 +675,11 @@ class ProfileData:
                             [r for h in self.holeli for r in h])
              for p in path])
         box = allpaths.bounding_box()
-        shell_width = geometry.to_pixel_units(opt.shell_width, self.pixelwidth)
+        shell_width = geometry.to_pixel_units(self.opt.shell_width,
+                                              self.pixelwidth)
         mcli = []
-        for n in range(0, opt.monte_carlo_runs):
-            if opt.stop_requested:
+        for n in range(0, self.opt.monte_carlo_runs):
+            if self.opt.stop_requested:
                 return []
             dot_progress(n)
             mcli.append({"pli": [],
@@ -685,6 +687,7 @@ class ProfileData:
                          "simulated - particle": {"dist": [], "latdist": []},
                          "particle - simulated": {"dist": [], "latdist": []},
                          "clusterli": []})
+            p = Point()
             for _ in range(0, numpoints):
                 while True:
                     x = random.randint(int(box[0].x - shell_width),
@@ -698,38 +701,35 @@ class ProfileData:
                 # is found
                 mcli[n]["pli"].append(p)
             for p in mcli[n]["pli"]:
-                p.determine_stuff(mcli[n]["pli"], self, opt)
-            if opt.interpoint_relations["simulated - simulated"]:
-                distlis = self._get_same_interpoint_distances(opt,
-                                                              mcli[n]["pli"])
+                p.determine_stuff(mcli[n]["pli"])
+            if self.opt.interpoint_relations["simulated - simulated"]:
+                distlis = self._get_same_interpoint_distances(mcli[n]["pli"])
                 mcli[n]["simulated - simulated"]["dist"].append(distlis[0])
                 mcli[n]["simulated - simulated"]["latdist"].append(distlis[1])
-            if opt.interpoint_relations["simulated - particle"]:
-                distlis = self._get_interpoint_distances2(opt, mcli[n]["pli"],
-                                                          pli)
+            if self.opt.interpoint_relations["simulated - particle"]:
+                distlis = self._get_interpoint_distances2(mcli[n]["pli"], pli)
                 mcli[n]["simulated - particle"]["dist"].append(distlis[0])
                 mcli[n]["simulated - particle"]["latdist"].append(distlis[1])
-            if opt.interpoint_relations["particle - simulated"]:
-                distlis = self._get_interpoint_distances2(opt, pli,
-                                                          mcli[n]["pli"])
+            if self.opt.interpoint_relations["particle - simulated"]:
+                distlis = self._get_interpoint_distances2(pli, mcli[n]["pli"])
                 mcli[n]["particle - simulated"]["dist"].append(distlis[0])
                 mcli[n]["particle - simulated"]["latdist"].append(distlis[1])
-        if opt.determine_clusters:
+        if self.opt.determine_clusters:
             for n, li in enumerate(mcli):
                 dot_progress(n)
-                mcli[n]["clusterli"] = self._determine_clusters(li["pli"], opt)
-                self._process_clusters(mcli[n]["clusterli"], opt)
+                mcli[n]["clusterli"] = self._determine_clusters(li["pli"])
+                self._process_clusters(mcli[n]["clusterli"])
         sys.stdout.write("\n")
         return mcli
 
-    def _process_clusters(self, clusterli, opt):
+    def _process_clusters(self, clusterli):
         for c in clusterli:
-            if opt.stop_requested:
+            if self.opt.stop_requested:
                 return
             c.convex_hull = geometry.convex_hull(c)
             c.distToPath = c.convex_hull.centroid().perpend_dist(self.posel)
         for c in clusterli:
-            if opt.stop_requested:
+            if self.opt.stop_requested:
                 return
             c.nearestCluster = ClusterData()
             if len(clusterli) == 1:
@@ -743,21 +743,20 @@ class ProfileData:
                         c.distToNearestCluster = d
                         c.nearestCluster = c2
 
-    def _determine_clusters(self, pointli, opt):
+    def _determine_clusters(self, pointli):
         """ Partition pointli into clusters; each cluster contains all
             points that are less than opt.within_cluster_dist from at 
             least one other point in the cluster
         """
         clusterli = []
         for p1 in pointli:
-            if opt.stop_requested:
+            if self.opt.stop_requested:
                 return []
             if p1.cluster:
                 continue
             for p2 in pointli:
                 if p1 != p2 and p1.dist(p2) <= geometry.to_pixel_units(
-                        opt.within_cluster_dist,
-                        self.pixelwidth):
+                        self.opt.within_cluster_dist, self.pixelwidth):
                     if p2.cluster is not None:
                         p1.cluster = p2.cluster
                         clusterli[p1.cluster].append(p1)
@@ -767,7 +766,7 @@ class ProfileData:
                 clusterli.append(ClusterData([p1]))
         return clusterli
 
-    def _parse(self, opt):
+    def _parse(self):
         """ Parse profile data from input file
         """
         sys.stdout.write("\nParsing '%s':\n" % self.inputfn)
@@ -807,15 +806,15 @@ class ProfileData:
                 except IndexError:
                     pass
             elif s.upper() == "POSTSYNAPTIC_ELEMENT":
-                self.posel = geometry.SegmentedPath(
+                self.posel = geometry.OpenPath(
                     self._get_coords(li, "postsynaptic element"))
             elif s.upper() == "PRESYNAPTIC_ELEMENT":
-                self.prsel = geometry.SegmentedPath(
+                self.prsel = geometry.OpenPath(
                     self._get_coords(li, "presynaptic element"))
             elif s.upper() == "POSTSYNAPTIC_DENSITY":
-                self.psdli.append(PSD(self._get_coords(li, "PSD")))
+                self.psdli.append(PSD(self._get_coords(li, "PSD"), self))
             elif s.upper() == "HOLE":
-                self.holeli.append(geometry.SegmentedPath(
+                self.holeli.append(geometry.ClosedPath(
                     self._get_coords(li, "hole")))
             elif s.upper() == "PARTICLES":
                 self.pli = PointList(
@@ -830,16 +829,16 @@ class ProfileData:
                 profile_warning(self, "Unrecognized string '" + s +
                                 "' in input file")
         # Now, let's see if everything was found
-        self._check_parsed_data(opt)
+        self._check_parsed_data()
 
-    def _check_parsed_data(self, opt):
+    def _check_parsed_data(self):
         """ See if the profile data was parsed correctly, and print 
             info on the parsed data to standard output.            
         """
         self._check_var_default('src_img', "Source image", "N/A")
         self._check_var_default('ID', "Profile ID", "N/A")
         self._check_var_default('comment', "Comment", "")
-        self._check_var_val('metric_unit', "Metric unit", 'metric_unit', opt)
+        self._check_var_val('metric_unit', "Metric unit", 'metric_unit')
         self._check_required_var('pixelwidth', "Pixel width", self.metric_unit)
         self._check_var_default('postsynProfile', "Postsynaptic profile", "N/A")
         self._check_var_default('presynProfile', "Presynaptic profile", "N/A")
@@ -849,8 +848,8 @@ class ProfileData:
                               "Postsynaptic densities", 1, 2)
         self._check_list_var('pli', 'Particles', '', 0)
         self._check_table_var('holeli', "Hole", "Holes", 0, 2)
-        self._check_var_exists('gridli', "Grid", 'useGrid', opt)
-        self._check_var_exists('randomli', "Random points", 'useRandom', opt)
+        self._check_var_exists('gridli', "Grid", 'useGrid')
+        self._check_var_exists('randomli', "Random points", 'useRandom')
         for n, h in enumerate(self.holeli):
             if not h.isSimplePolygon():
                 raise ProfileError(self,
@@ -932,7 +931,7 @@ class ProfileData:
             self.__dict__[var_to_check] = default
         sys.stdout.write("  %s: %s\n" % (var_str, self.__dict__[var_to_check]))
 
-    def _check_var_exists(self, var_to_check, var_str, optflag, opt):
+    def _check_var_exists(self, var_to_check, var_str, optflag):
         """ Checks for consistency between profiles with respect to the
             existence of var_to_check (i.e., var_to_check must be present 
             either in all profiles or in none).  
@@ -943,12 +942,12 @@ class ProfileData:
             var_to_check must (if optflag is True) or must not (if optflag is 
             False) exist. If not so, raise ProfileError.
         """
-        if not hasattr(opt, optflag):
+        if not hasattr(self.opt, optflag):
             if hasattr(self, var_to_check):
-                opt.__dict__[optflag] = True
+                self.opt.__dict__[optflag] = True
             else:
-                opt.__dict__[optflag] = False
-        if opt.__dict__[optflag]:
+                self.opt.__dict__[optflag] = False
+        if self.opt.__dict__[optflag]:
             if hasattr(self, var_to_check):
                 sys.stdout.write("  %s: yes\n" % var_str)
             else:
@@ -958,7 +957,7 @@ class ProfileData:
         else:
             sys.stdout.write("  %s: no\n" % var_str)
 
-    def _check_var_val(self, var_to_check, var_str, optvar, opt):
+    def _check_var_val(self, var_to_check, var_str, optvar):
         """ Checks for consistency between profiles with respect to the
             value of var_to_check (i.e., var_to_check must be present 
             and have equal value in all profiles).  
@@ -971,16 +970,16 @@ class ProfileData:
         """
         if not hasattr(self, var_to_check):
             raise ProfileError(self, "%s not found in input file" % var_str)
-        if not hasattr(opt, optvar):
-            opt.__dict__[optvar] = self.__dict__[var_to_check]
-        elif self.__dict__[var_to_check] == opt.__dict__[optvar]:
+        if not hasattr(self.opt, optvar):
+            self.opt.__dict__[optvar] = self.__dict__[var_to_check]
+        elif self.__dict__[var_to_check] == self.opt.__dict__[optvar]:
             sys.stdout.write("  %s: %s\n" % (var_str, 
                                              self.__dict__[var_to_check]))
         else:
             raise ProfileError(self, "%s value '%s'  differs from the value "
                                      "specified ('%s') in the first input file"
                                % (var_str, self.__dict__[var_to_check],
-                                  opt.__dict__[optvar]))
+                                  self.opt.__dict__[optvar]))
 
     def _check_paths(self):
         """ Make sure that posel, prsel or psd do not intersect with
@@ -1026,7 +1025,7 @@ class ProfileData:
         """
 
         def dist_to_left_endnode(_p):
-            path = geometry.SegmentedPath()
+            path = geometry.OpenPath()
             project, seg_project = _p.project_on_path_or_endnode(self.posel)
             path.extend([self.posel[0], project])
             for n in range(1, seg_project):
@@ -1045,8 +1044,8 @@ class ProfileData:
             elif right_d <= right_mindist:
                 right_mindist = right_d
                 right_p = p
-        pseudo_psd = PSD(geometry.SegmentedPath([left_p, right_p]))
-        return pseudo_psd.get_posm(self)
+        pseudo_psd = PSD(geometry.SegmentedPath([left_p, right_p]), self)
+        return pseudo_psd.get_posm()
 
     def _get_coords(self, strli, coord_type=""):
         """ Pop point coordinates from list strli.
@@ -1080,7 +1079,7 @@ class ProfileData:
             del pointli[-1]
         return pointli
 
-    def _save_results(self, opt):
+    def _save_results(self):
         """ Output results from a single profile to file
         """
 
@@ -1101,23 +1100,23 @@ class ProfileData:
             f.writerow(args)
 
         try:
-            self.outputfn = file_io.os.path.join(opt.output_dir,
-                                                file_io.os.path.basename(
-                                                    self.inputfn)
-                                                + opt.output_filename_suffix
-                                                + opt.output_filename_ext)
+            self.outputfn = \
+                file_io.os.path.join(self.opt.output_dir,
+                                     file_io.os.path.basename(self.inputfn) +
+                                     self.opt.output_filename_suffix +
+                                     self.opt.output_filename_ext)
 
             if (file_io.os.path.exists(self.outputfn) and
-                    opt.action_if_output_file_exists == 'enumerate'):
-                self.outputfn = file_io.enumFilename(self.outputfn, 2)
+                    self.opt.action_if_output_file_exists == 'enumerate'):
+                self.outputfn = file_io.enum_filename(self.outputfn, 2)
             sys.stdout.write("Writing to '%s'...\n" % self.outputfn)
-            if opt.output_file_format == "csv":
+            if self.opt.output_file_format == "csv":
                 csv_format = {'dialect': 'excel', 'lineterminator': '\n'}
-                if opt.csv_delimiter == 'tab':
+                if self.opt.csv_delimiter == 'tab':
                     csv_format['delimiter'] = '\t'
                 f = unicode_csv.writer(file(self.outputfn, "w"),
-                                       **opt.csv_format)
-            elif opt.output_file_format == 'excel':
+                                       **self.opt.csv_format)
+            elif self.opt.output_file_format == 'excel':
                 import xls
 
                 f = xls.writer(self.outputfn)
@@ -1141,7 +1140,7 @@ class ProfileData:
             fwrite("Number of particles in PSD:",
                    len([p for p in self.pli if p.isWithinPSD]))
             fwrite("Number of particles within %s metric units of PSD:"
-                   % opt.spatial_resolution,
+                   % self.opt.spatial_resolution,
                    len([p for p in self.pli if p.isAssociatedWithPSD]))
             fwrite("Particles in PSD / PSD area (*1e6):",
                    1e6 * len([p for p in self.pli if p.isWithinPSD])
@@ -1277,6 +1276,7 @@ def profile_warning(profile, msg):
     """
     sys.stdout.write("Warning: %s.\n" % msg)
     profile.warnflag = True
+
 
 def profile_message(msg):
     """ Show a message
