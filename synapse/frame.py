@@ -11,6 +11,7 @@ import core
 import file_io
 import gui
 import main
+import options
 import stringconv
 import version
 
@@ -25,7 +26,7 @@ class Frame(gui.MainFrame):
         self.set_input_file_list_ctrl_columns(self.InputFileListCtrl)
         dt = FileDropTarget(self)
         self.InputFileListCtrl.SetDropTarget(dt)
-        self.opt = core.OptionData()
+        self.opt = options.OptionData()
         self.configfn = os.path.normpath(os.path.expanduser('~/.%s.cfg'
                                          % version.title.lower()))
         self.log = None
@@ -353,7 +354,7 @@ class Frame(gui.MainFrame):
         if not config.has_section('Options'):
             return     # No options present in config file; silently use
                        # default options
-        defaults = core.OptionData()
+        defaults = options.OptionData()
         for option in config.options('Options'):
             if '.' in option:
                 option_dict, option_key = option.split('.', 1)

@@ -5,7 +5,7 @@ import os.path
 import time
 from core import *
 import geometry
-from file_io import *
+import file_io
 import version
 import stringconv as sc
     
@@ -116,43 +116,43 @@ def save_output(profileli, opt):
             f.writerows([[m(pro.posel.length(), pro.pixelwidth),
                           m(pro.prsel.length(), pro.pixelwidth),
                           len(pro.psdli),
-                          m(pro.totalPosm.length(), pro.pixelwidth),
+                          m(pro.total_posm.length(), pro.pixelwidth),
                           sum([m(psd.posm.length(), pro.pixelwidth)
                                for psd in pro.psdli]),
                           sum([m2(psd.psdposm.area(), pro.pixelwidth)
                                for psd in pro.psdli]),
                           len(pro.pli),
-                          len([p for p in pro.pli if p.isWithinPSD]),
-                          len([p for p in pro.pli if p.isAssociatedWithPSD]),
+                          len([p for p in pro.pli if p.is_within_psd]),
+                          len([p for p in pro.pli if p.is_associated_with_psd]),
                           len([p for p in pro.pli
-                               if p.strictLateralLocation == "synaptic" and
-                               p.axodendriticLocation == "postsynaptic" and
-                               p.isWithinPostsynapticMembraneShell]),
+                               if p.strict_lateral_location == "synaptic" and
+                               p.axodendritic_location == "postsynaptic" and
+                               p.is_within_postsynaptic_membrane_shell]),
                           len([p for p in pro.pli
-                               if p.strictLateralLocation == "synaptic" and
-                               (p.axodendriticLocation == "postsynaptic" and
-                                p.isWithinPostsynapticMembraneShell) or
-                               p.isPostsynapticMembraneAssociated]),
+                               if p.strict_lateral_location == "synaptic" and
+                               (p.axodendritic_location == "postsynaptic" and
+                                p.is_within_postsynaptic_membrane_shell) or
+                               p.is_postsynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "synaptic" and
-                               p.isPostsynapticMembraneAssociated]),
+                               if p.lateral_location == "synaptic" and
+                               p.is_postsynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "synaptic" and
-                               p.isPresynapticMembraneAssociated]),
+                               if p.lateral_location == "synaptic" and
+                               p.is_presynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "perisynaptic" and
-                               p.isPostsynapticMembraneAssociated]),
+                               if p.lateral_location == "perisynaptic" and
+                               p.is_postsynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "perisynaptic" and
-                               p.isPresynapticMembraneAssociated]),
+                               if p.lateral_location == "perisynaptic" and
+                               p.is_presynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "within perforation"
-                               and p.isPostsynapticMembraneAssociated]),
+                               if p.lateral_location == "within perforation"
+                               and p.is_postsynaptic_membrane_associated]),
                           len([p for p in pro.pli
-                               if p.lateralLocation == "within perforation"
-                               and p.isPresynapticMembraneAssociated]),
-                          pro.presynProfile,
-                          pro.postsynProfile,
+                               if p.lateral_location == "within perforation"
+                               and p.is_presynaptic_membrane_associated]),
+                          pro.presyn_profile,
+                          pro.postsyn_profile,
                           os.path.basename(pro.inputfn)] for pro in eval_proli])
 
     def write_point_summary(ptype):
@@ -160,13 +160,13 @@ def save_output(profileli, opt):
             pli = "pli"
             pstr = "particle"
         elif ptype == "random":
-            if not opt.useRandom:
+            if not opt.use_random:
                 return
             else:
                 pli = "randomli"
                 pstr = "point"
         elif ptype == "grid":
-            if not opt.useGrid:
+            if not opt.use_grid:
                 return
             else:
                 pli = "gridli"
@@ -194,21 +194,21 @@ def save_output(profileli, opt):
                         "Input file",
                         "Comment"])
             f.writerows([[n+1,
-                          p.axodendriticLocation,                           
-                          m(p.distToPosel, pro.pixelwidth),
-                          m(p.distToPrsel, pro.pixelwidth),
-                          p.lateralLocation,
-                          p.strictLateralLocation,
-                          m(p.lateralDistPSD, pro.pixelwidth),
-                          p.normLateralDistPSD,                          
-                          sc.yes_or_no(p.isWithinPSD),
-                          sc.yes_or_no(p.isAssociatedWithPSD),
-                          m(pro.totalPosm.length(), pro.pixelwidth),
+                          p.axodendritic_location,                           
+                          m(p.dist_to_posel, pro.pixelwidth),
+                          m(p.dist_to_prsel, pro.pixelwidth),
+                          p.lateral_location,
+                          p.strict_lateral_location,
+                          m(p.lateral_dist_psd, pro.pixelwidth),
+                          p.norm_lateral_dist_psd,                          
+                          sc.yes_or_no(p.is_within_psd),
+                          sc.yes_or_no(p.is_associated_with_psd),
+                          m(pro.total_posm.length(), pro.pixelwidth),
                           m(sum([psd.posm.length() for psd in pro.psdli]),
                             pro.pixelwidth),
-                          m(p.closestPSD.posm.length(), pro.pixelwidth),
-                          pro.presynProfile,
-                          pro.postsynProfile,
+                          m(p.closest_psd.posm.length(), pro.pixelwidth),
+                          pro.presyn_profile,
+                          pro.postsyn_profile,
                           os.path.basename(pro.inputfn),
                           pro.comment] for pro in eval_proli for n, p in
                          enumerate(pro.__dict__[pli])])
@@ -216,7 +216,7 @@ def save_output(profileli, opt):
     def write_cluster_summary():
         if not opt.determine_clusters:
             return
-        with FileWriter("cluster.summary", opt) as f:
+        with file_io.FileWriter("cluster.summary", opt) as f:
             f.writerow(["Cluster number",
                        "Number of particles in cluster",
                        "Distance to postsynaptic membrane of centroid",
@@ -227,8 +227,8 @@ def save_output(profileli, opt):
                        "Comment"])
             f.writerows([[n + 1,
                         len(c),
-                        m(c.distToPath, pro.pixelwidth),
-                        m(na(c.distToNearestCluster), pro.pixelwidth),
+                        m(c.dist_to_posel, pro.pixelwidth),
+                        m(na(c.dist_to_nearest_cluster), pro.pixelwidth),
                         pro.ID,
                         os.path.basename(pro.inputfn),
                         pro.comment]for pro in eval_proli for n, c in
@@ -244,7 +244,7 @@ def save_output(profileli, opt):
         ip_rels = dict([(key, val)
                         for key, val in opt.interpoint_relations.items()
                         if val and "simulated" not in key])
-        if not opt.useRandom:
+        if not opt.use_random:
             for key, val in opt.interpoint_relations.items():
                 if "random" in key and val:
                     del ip_rels[key]
@@ -276,7 +276,7 @@ def save_output(profileli, opt):
             topheaderli.append("Lateral distances along postsynaptic element "
                                "membrane")
         table.extend([topheaderli, headerli])
-        cols = [[] for c in prefixli]
+        cols = [[] for _ in prefixli]
         for pro in eval_proli:
             for n, li in enumerate([pro.__dict__[prefix + "distli"]
                                     for prefix in prefixli]):
@@ -304,13 +304,14 @@ def save_output(profileli, opt):
                      for n in range(0, opt.monte_carlo_runs)])
         for pro in eval_proli:
             if ptype == "metric":
-                table.extend(map(m_li, *[[p.lateralDistPSD for p in li["pli"]]
+                table.extend(map(m_li, *[[p.lateral_dist_psd for p in li["pli"]]
                                          for li in pro.mcli]))
             elif ptype == "normalized":
-                table.extend(map(None, *[[p.normLateralDistPSD
+                table.extend(map(None, *[[p.norm_lateral_dist_psd
                                           for p in li["pli"]]
                                          for li in pro.mcli]))
-        with FileWriter("simulated.PSD.%s.lateral.distances" % ptype, opt) as f:
+        with file_io.FileWriter("simulated.PSD.%s.lateral.distances" % ptype,
+                                opt) as f:
             f.writerows(table)
 
     def write_mc_dist_to_posel():
@@ -323,10 +324,10 @@ def save_output(profileli, opt):
         table = [["Run %d" % (n + 1)
                   for n in range(0, opt.monte_carlo_runs)]]
         for pro in eval_proli:
-            table.extend(map(m_li, *[[p.distToPosel for p in li["pli"]]
+            table.extend(map(m_li, *[[p.dist_to_posel for p in li["pli"]]
                                      for li in pro.mcli]))
-        with FileWriter("simulated.postsynaptic.element.membrane.distances",
-                        opt) as f:
+        with file_io.FileWriter(
+                "simulated.postsynaptic.element.membrane.distances", opt) as f:
             f.writerows(table)
 
     def write_mc_ip_dists(dist_type):
@@ -363,7 +364,8 @@ def save_output(profileli, opt):
             return
         table = [["N particles in cluster", "Run",
                   "Distance to postsynaptic element membrane from centroid",
-                  "Distance to nearest cluster",
+                  "Distance to nearest cluster along postsynaptic element "
+                  "membrane",
                   "Profile ID",
                   "Input file",
                   "Comment"]]
@@ -413,12 +415,9 @@ def reset_options(opt):
     """ Deletes certain options that should always be set anew for each run
         (each time the "Start" button is pressed)
     """
-    if hasattr(opt, "metric_unit"):
-        delattr(opt, "metric_unit")
-    if hasattr(opt, "use_grid"):
-        delattr(opt, "use_grid")
-    if hasattr(opt, "use_random"):
-        delattr(opt, "use_random")
+    opt.metric_unit = None
+    opt.use_random = None
+    opt.use_grid = None
 
 
 def show_options(opt):
@@ -472,9 +471,9 @@ def get_output_format(opt):
             opt.csv_format['delimiter'] = '\t'
     if opt.output_filename_date_suffix:
         import datetime
-        opt.outputFilenameSuffix = "." + datetime.date.today().isoformat()
+        opt.output_filename_suffix = "." + datetime.date.today().isoformat()
     if opt.output_filename_other_suffix != '':
-        opt.outputFilenameSuffix += "." + opt.output_filename_other_suffix
+        opt.output_filename_suffix += "." + opt.output_filename_other_suffix
         
       
 def main_proc(parent):
@@ -505,7 +504,7 @@ def main_proc(parent):
             break
         parent.process_queue.put(("new_file", inputfn))       
         profileli.append(ProfileData(inputfn, opt))
-        profileli[-1].process(opt)
+        profileli[-1].process()
         if opt.stop_requested:
             sys.stdout.write("\n--- Session aborted by user %s local time ---\n" 
                              % time.ctime())

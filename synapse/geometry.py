@@ -426,9 +426,7 @@ class ClosedPath(SegmentedPath):
         """ Return signed area of polygon
         """
         if len(self) < 3:
-            # Shouldn't happen
-            return None
-            #return 0.0
+            return 0.0
         a = (self[0].x - self[-1].x) * (self[-1].y + self[0].y)
         for n in range(0, len(self) - 1):
             a += (self[n + 1].x - self[n].x) * (self[n].y + self[n + 1].y)
@@ -457,9 +455,7 @@ class ClosedPath(SegmentedPath):
         """
         a_tot = self.signed_area()
         if a_tot == 0:
-            # Shouldn't happen
-            return None
-            #return self.center_point()
+            return OpenPath(self).center_point()
         cx, cy = 0., 0.
         for n in range(1, len(self) - 1):
             a_t = ClosedPath([self[0], self[n], self[n + 1]]).signed_area()
@@ -653,7 +649,7 @@ def convex_hull(pointli):
     def signed_area(a, b, c):
         # Computes the signed area of the triangle formed by a, b and c;
         # if this area < 0, then c is strictly left of the line a->b
-        return SegmentedPath([a, b, c]).signed_area()
+        return ClosedPath([a, b, c]).signed_area()
 
     def comp_func(pi, pj):
         a = signed_area(p0, pi, pj)
@@ -683,12 +679,12 @@ def convex_hull(pointli):
 
     # main function body
     if len(pointli) <= 2:  # if less than 3 points, the convex hull is equal
-        return SegmentedPath(pointli[:])  # to pointli
+        return ClosedPath(pointli[:])  # to pointli
     if len(pointli) == 3:  # if 3 points:
         if signed_area(*pointli) != 0:  # if the points are not collinear,
-            return SegmentedPath(pointli[:])  # return all points,
+            return ClosedPath(pointli[:])  # return all points,
         else:  # else only the end points
-            return SegmentedPath([pointli[0], pointli[2]])
+            return ClosedPath([pointli[0], pointli[2]])
     # find the rightmost lowest point
     p0 = pointli[0]
     for p in pointli[1:]:
