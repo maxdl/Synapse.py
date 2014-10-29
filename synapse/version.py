@@ -5,8 +5,8 @@ import sys
 
 title = "Synapse"
 author = "Max Larsson"
-version = "1.0d"
-date = ("May", "14", "2014")
+version = "1.1.0"
+date = ("October", "29", "2014")
 email = "max.larsson@liu.se"
 homepage = "www.hu.liu.se/forskning/larsson-max/software"
 if hasattr(sys, 'frozen'):
