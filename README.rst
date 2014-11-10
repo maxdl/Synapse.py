@@ -4,9 +4,10 @@ Synapse.py
 
 Synapse.py is a software tool for analysis of immunogold labeled electron
 micrographs. Specifically, it is used to analyse gold labeling associated with 
-membrane-enclosed compartments or other closed segmented paths. It is of course
-also possible to use the tool for other types of two-dimensional spatial point 
-patterns.
+synaptic compartments comprising open pre- and postsynaptic membranes and
+a postsynaptic density adjunct to the postsynaptic membrane. It is of course
+also possible to use the tool for other types of two-dimensional spatial
+point patterns and synaptic-like structures.
 
 Synapse.py is used in conjunction with its companion ImageJ plugin,
 Synapse_.java.
