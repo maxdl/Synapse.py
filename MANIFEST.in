@@ -1,5 +1,6 @@
 include README.rst
 include LICENSE
 include ez_setup.py
-include synapse *.py *.pyw
+include synapse/*.py
+include synapse/*.pyw
 include synapse/syn.ico

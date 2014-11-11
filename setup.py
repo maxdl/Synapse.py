@@ -21,7 +21,9 @@ setup(
     packages=find_packages(),
     entry_points={
     'console_scripts':
-        ['Synapse = synapse.Synapse:main']
+        ['Synapse = synapse.Synapse:main'],
+    'gui_scripts':
+        ['Synapse = synapse.Synapse:main']        
     },
     data_files=[('synapse', ['synapse/syn.ico'])],
     install_requires=['pyexcelerator']
