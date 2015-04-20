@@ -358,6 +358,30 @@ class SegmentedPath(list):
         except (AttributeError, IndexError):
             raise TypeError('not a list of Point elements')
 
+    def iterate_partial(self, n1, n2):
+        """ Iterates over the elements in self, starting at element n1 and
+            ending at the element preceding n2. If n1==n2, returns the whole
+            list (appropriately shifted) rather than an empty list.
+        """
+        if n1 < 0:
+            n1 += len(self)
+        if n2 < 0:
+            n2 += len(self)
+        k = n1
+        cycle_once = False
+        if n1 == n2:
+            cycle_once = True
+        for i in range(0, len(self)):
+            if k == len(self):
+                k = 0
+            if k == n2:
+                if not cycle_once:
+                    break
+                else:
+                    cycle_once = False
+            yield self[k]
+            k += 1
+
     def is_oriented_to_path(self, path):
         p0, node0 = self[0].project_on_path_or_endnode(path)
         pn, node_n = self[-1].project_on_path_or_endnode(path)
