@@ -329,7 +329,7 @@ class ProfileData:
             s = li.pop(0).replace("\n", "").strip()
             if s.split(" ")[0].upper() == "IMAGE":
                 self.src_img = s.split(" ")[1]
-            elif s.split(" ")[0].upper() == "SYNAPSE_ID":
+            elif s.split(" ")[0].upper() in ("SYNAPSE_ID", "PROFILE_ID"):
                 try:
                     self.ID = s.split(" ")[1]
                 except (IndexError, ValueError):
@@ -375,6 +375,8 @@ class ProfileData:
             elif s.upper() == "RANDOM_POINTS":
                 self.randomli = point.PointList(
                     self._get_coords(li, "random"), "random", self)
+            elif s.upper() == "END":   # END is not needed anymore
+                pass
             elif s[0] != "#":  # unless specifically commented out           
                 profile_warning(self, "Unrecognized string '" + s +
                                 "' in input file")
@@ -604,8 +606,9 @@ class ProfileData:
             a warning is issued.
         """
         pointli = []
-        s = strli.pop(0).replace("\n", "").replace(" ", "").strip()
-        while s != "END":
+        while True:
+            rawstr = strli.pop(0)
+            s = rawstr.replace("\n", "").replace(" ", "").strip()
             try:
                 p = geometry.Point(float(s.split(",")[0]),
                                    float(s.split(",")[1]))
@@ -617,12 +620,14 @@ class ProfileData:
                 else:
                     pointli.append(p)
             except ValueError:
-                if s[0] != "#":
-                    profile_warning(self, "'%s' not valid %s coordinates"
-                                    % (s, coord_type))
-                else:
-                    pass
-            s = strli.pop(0).replace("\n", "").strip()
+                strli.insert(0, rawstr)
+                break
+                # if s[0] != "#":
+                #    profile_warning(self, "'%s' not valid %s coordinates"
+                #                    % (s, coord_type))
+                # else:
+                #    pass
+            # s = strli.pop(0).replace("\n", "").strip()
         # For some reason, sometimes the endnodes have the same
         # coordinates; in that case, delete the last endnode to avoid
         # division by zero
