@@ -1,15 +1,15 @@
-import geometry
-from err_warn import ProfileError
+from . import geometry
+from .err_warn import ProfileError
 
 
-class PSD(geometry.OpenPath):
+class PSD(geometry.SegmentedPath):
     def __init__(self, pointli, profile):
-        super(geometry.OpenPath, self).__init__(pointli)
+        super().__init__(pointli)
         self.profile = profile
-        self.posm = geometry.OpenPath()
-        self.prsm = geometry.OpenPath()
-        self.psdposm = geometry.ClosedPath()
-        self.cleft = geometry.ClosedPath()
+        self.posm = geometry.SegmentedPath()
+        self.prsm = geometry.SegmentedPath()
+        self.psdposm = geometry.SegmentedPath()
+        self.cleft = geometry.SegmentedPath()
         self.cleft_width = None
 
     def adjust_psd(self):
@@ -19,9 +19,8 @@ class PSD(geometry.OpenPath):
         # Partition psd into paths defined by the intersections with posel,
         # beginning and ending with the projections of the end nodes of psd.
         # Each path will then be completely on one side of posel.
-        pathli = [geometry.OpenPath()]
-        pathli[0].append(self[0].project_on_path_or_endnode(
-            self.profile.posel)[0])
+        pathli = [geometry.SegmentedPath()]
+        pathli[0].append(self[0].project_on_path_or_endnode(self.profile.posel)[0])
         p = geometry.Point()
         for n in range(0, len(self) - 1):
             pathli[-1].append(self[n])
@@ -33,16 +32,15 @@ class PSD(geometry.OpenPath):
                     break
             if p:
                 pathli[-1].append(p)
-                pathli.append(geometry.OpenPath())
+                pathli.append(geometry.SegmentedPath())
                 pathli[-1].append(p)
         pathli[-1].append(self[-1])
-        pathli[-1].append(self[-1].project_on_path_or_endnode(
-            self.profile.posel)[0])
+        pathli[-1].append(self[-1].project_on_path_or_endnode(self.profile.posel)[0])
         # Now, look for the longest path. This is assumed to be the intended
         # psd. (Perhaps area is more relevant. However, this is messier because
         # we need to determine the part of dm enclosed by path for each path.)
         maxlength = 0
-        longest_path = geometry.OpenPath()
+        longest_path = geometry.SegmentedPath()
         for path in pathli:
             length = path.length()
             if length > maxlength:
@@ -59,16 +57,15 @@ class PSD(geometry.OpenPath):
             postsynaptic element, and that the PSD is oriented in the
             same direction as posm (ie node1 <= node2).
         """
-        posm = geometry.OpenPath()
+        posm = geometry.SegmentedPath()
         p1, node1 = self[0].project_on_path_or_endnode(self.profile.posel)
         p2, node2 = self[-1].project_on_path_or_endnode(self.profile.posel)
-        if not None in (node1, node2):
+        if None not in (node1, node2):
             posm.extend(self.profile.posel[node1 + 1:node2 + 1])
             posm.insert(0, p1)
             posm.append(p2)
         if len(posm) == 0 or posm.length() == 0:
-            raise ProfileError(self.profile, "Could not determine postsynaptic "
-                                             "membrane")
+            raise ProfileError(self.profile, "Could not determine postsynaptic membrane")
         # It appears that sometimes the first or last nodes get
         # duplicated, resulting in a zero vector and division by zero
         # when projecting on posm. Simply checking for the duplicated
@@ -89,7 +86,7 @@ class PSD(geometry.OpenPath):
         return posm
 
     def get_prsm(self):
-        prsm = geometry.OpenPath()
+        prsm = geometry.SegmentedPath()
         p1, node1 = self[0].project_on_path_or_endnode(self.profile.prsel)
         p2, node2 = self[-1].project_on_path_or_endnode(self.profile.prsel)
         if not None in (node1, node2):
@@ -114,8 +111,7 @@ class PSD(geometry.OpenPath):
             prsm.insert(0, p1)
             prsm.append(p2)
         if len(prsm) == 0 or prsm.length() == 0:
-            raise ProfileError(self.profile, "Could not determine presynaptic "
-                                             "membrane")
+            raise ProfileError(self.profile, "Could not determine presynaptic membrane")
         return prsm
 
     def get_psd_posm(self):
@@ -123,7 +119,7 @@ class PSD(geometry.OpenPath):
             posm. Assume that PSD and posm share end nodes and that
             they are oriented in the same direction.
         """
-        pol = geometry.ClosedPath()
+        pol = geometry.SegmentedPath()
         pol.extend(self.posm)
         pol.reverse()
         pol.extend(self[1:-1])
@@ -135,7 +131,7 @@ class PSD(geometry.OpenPath):
             segments formed by projecting the end nodes of prsm onto
             posm, and the part of posm between these projections.
         """
-        pol = geometry.ClosedPath()
+        pol = geometry.SegmentedPath()
         if len(self.profile.prsel) == 0:
             return pol
         proj0, seg0 = self.prsm[0].project_on_path_or_endnode(self.posm)

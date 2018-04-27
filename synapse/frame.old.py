@@ -1,19 +1,19 @@
-import configparser
+import ConfigParser
 import os
 import os.path
-import queue
+import Queue
 import sys
 import threading
 import time
 import traceback
 import wx
-from . import core
-from . import file_io
-from . import gui
-from . import main
-from . import options
-from . import stringconv
-from . import version
+import core
+import file_io
+import gui
+import main
+import options
+import stringconv
+import version
 
 
 class Frame(gui.MainFrame):
@@ -27,7 +27,8 @@ class Frame(gui.MainFrame):
         dt = FileDropTarget(self)
         self.InputFileListCtrl.SetDropTarget(dt)
         self.opt = options.OptionData()
-        self.configfn = os.path.normpath(os.path.expanduser('~/.%s.cfg' % version.title.lower()))
+        self.configfn = os.path.normpath(os.path.expanduser('~/.%s.cfg'
+                                         % version.title.lower()))
         self.log = None
         self.exitcode = None
         self.get_input_dir_from_config()
@@ -42,13 +43,13 @@ class Frame(gui.MainFrame):
         """
         if sys.platform == "win32":
             import ctypes
-            appid = 'Synapse'  # arbitrary string
+            appid = 'company.product.subproduct.version'  # arbitrary string
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-
+        
     def OnAddFile(self, event):
         dlg = wx.FileDialog(self, "Choose a file", os.getcwd(), "", "*%s"
                             % self.opt.input_filename_ext,
-                            wx.FD_MULTIPLE | wx.FD_CHANGE_DIR)
+                            wx.MULTIPLE | wx.FD_CHANGE_DIR)
         try:
             if dlg.ShowModal() == wx.ID_OK:
                 self.add_files(dlg.GetPaths())
@@ -57,7 +58,8 @@ class Frame(gui.MainFrame):
     
     def OnRemoveFile(self, event):
         while 1:
-            i = self.InputFileListCtrl.GetNextItem(-1, state=wx.LIST_STATE_SELECTED)
+            i = self.InputFileListCtrl.GetNextItem(-1, 
+                                                   state=wx.LIST_STATE_SELECTED)
             if i == -1:
                 break
             else:
@@ -72,13 +74,12 @@ class Frame(gui.MainFrame):
             return
         i = self.InputFileListCtrl.GetNextItem(-1, state=wx.LIST_STATE_SELECTED)
         try:
-            fn = os.path.join(self.InputFileListCtrl.GetItemText(i, 1),
-                              self.InputFileListCtrl.GetItemText(i, 0))
+            fn = os.path.join(self.InputFileListCtrl.GetItem(i, 1).m_text,
+                              self.InputFileListCtrl.GetItem(i, 0).m_text)
         except IOError:
             self.show_error("Could not open file.")
             return
         dlg = ViewFileDialog(self, fn)
-        dlg.SetIcon(wx.Icon(version.icon, wx.BITMAP_TYPE_ICO))
         try:
             dlg.ShowModal()
         finally:
@@ -92,50 +93,54 @@ class Frame(gui.MainFrame):
         self.InterpointRelationsLabel.Enable(self.InterpointCheckBox.GetValue())
         self.ShortestDistCheckBox.Enable(self.InterpointCheckBox.GetValue())
         self.LateralDistCheckBox.Enable(self.InterpointCheckBox.GetValue())
-
+                
     def OnClusterCheckBox(self, event):
         self.ClusterDistSpinCtrl.Enable(self.ClusterCheckBox.GetValue())
         self.ClusterDistLabel.Enable(self.ClusterCheckBox.GetValue())
-        self.ClusterDistUnitLabel.Enable(self.ClusterCheckBox.GetValue())
-
+        self.ClusterDistUnitLabel.Enable(self.ClusterCheckBox.GetValue())        
+    
     def OnMonteCarloCheckBox(self, event):
         self.MonteCarloRunsLabel.Enable(self.MonteCarloCheckBox.GetValue())
         self.MonteCarloRunsSpinCtrl.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowChoice.Enable(self.MonteCarloCheckBox.GetValue())
-        self.SimulationWindowLabel.Enable(self.MonteCarloCheckBox.GetValue())
+        self.SimulationWindowLabel.Enable(self.MonteCarloCheckBox.GetValue())        
         self.StrictLocCheckBox.Enable(self.MonteCarloCheckBox.GetValue())
-
+    
     def OnOtherSuffixCheckBox(self, event):
         self.OtherSuffixTextCtrl.Enable(self.OtherSuffixCheckBox.GetValue())
         
     def OnSaveLogCheckBox(self, event):
         self.LogFilePickerCtrl.Enable(self.SaveLogCheckBox.GetValue())
         self.IfLogExistsRadioBox.Enable(self.SaveLogCheckBox.GetValue())
-        
+
     def OnSetOptionsAsDefault(self, event):
         if self.save_options_to_config():
-            self.StatusBar.SetStatusText("Current options saved to '%s'." % self.configfn)
+            self.StatusBar.SetStatusText("Current options saved to '%s'." 
+                                         % self.configfn)
 
     def OnStart(self, event):
         if self.InputFileListCtrl.GetItemCount() == 0:
             self.show_warning("No files to process.")
             return
-        self.set_options_from_ui()
+        self.get_options_from_ui()
         if not self.set_log():
             return
         self.StatusBar.SetStatusText("Processing...")
         self.exitcode = 1
         event_type = ""
-        msg = "Processing %s \n(File %d of %d)" % (os.path.basename(self.opt.input_file_list[0]), 1,
-                                                   len(self.opt.input_file_list))
+        msg = "Processing %s \n(File %d of %d)" % (
+              os.path.basename(self.opt.input_file_list[0]), 1,
+              len(self.opt.input_file_list))
         i = 0
         dlg = wx.ProgressDialog(version.title, msg,
                                 len(self.opt.input_file_list) + 2,
                                 parent=self,
-                                style=wx.PD_ELAPSED_TIME | wx.PD_REMAINING_TIME | wx.PD_CAN_ABORT)
-        pthread = ProcessThread(self.opt)
+                                style=wx.PD_ELAPSED_TIME |
+                                      wx.PD_REMAINING_TIME |
+                                      wx.PD_CAN_ABORT)
+        pthread = ProcessThread(self.opt)            
         pthread.start()
-        while pthread.isAlive() or not pthread.process_queue.empty():
+        while pthread.isAlive() or not pthread.process_queue.empty():        
             if not pthread.process_queue.empty():
                 (event_type, data) = pthread.process_queue.get()
                 if event_type == "new_file":
@@ -146,7 +151,7 @@ class Frame(gui.MainFrame):
                 if event_type == "saving_summaries":
                     i += 1
                     msg = "Saving summaries..."
-                if event_type == "done":
+                if event_type == "done":                
                     i = len(self.opt.input_file_list) + 2
                     msg = "Done."
             self.log.update()
@@ -159,11 +164,12 @@ class Frame(gui.MainFrame):
                 else:
                     dlg.Resume()
             if dlg.GetSize().GetWidth() < dlg.GetBestSize().GetWidth():
-                dlg.SetSize((dlg.GetBestSize().GetWidth() + 20, dlg.GetBestSize().GetHeight()))
+                dlg.SetSize((dlg.GetBestSize().GetWidth() + 20, 
+                            dlg.GetBestSize().GetHeight()))
         if not pthread.error_queue.empty():
             exc_str = pthread.error_queue.get()
             if self.log.fn != "":
-                self.StatusBar.SetStatusText("Logged to '" + self.log.fn + "'.")
+                self.StatusBar.SetStatusText("Logged to '" + self.log.fn + "'.")            
             sys.stdout.write("\n*** %s session was unexpectedly aborted"
                              " at %s (local time). \n\nDetails:\n%s"
                              % (version.title, time.ctime(), exc_str))
@@ -173,10 +179,10 @@ class Frame(gui.MainFrame):
                             "sent to log):\n\n %s" % (version.title, exc_str))
             dlg.Destroy()
             return
-        # Processing finished.
-        self.log.update()
+        # Processing finished.            
+        self.log.update()    
         if self.log.fn != "":
-            self.StatusBar.SetStatusText("Logged to '" + self.log.fn + "'.")
+            self.StatusBar.SetStatusText("Logged to '" + self.log.fn + "'.")        
         dlg.Destroy()
         if pthread.exitcode == 0:
             self.show_error("One or more errors occurred during processing. "
@@ -186,7 +192,7 @@ class Frame(gui.MainFrame):
                               "processing. See log for details.")
         elif pthread.exitcode == 3:
             self.show_warning("Session aborted by user.")
-            
+
     def OnAbout(self, event):
         dlg = AboutDialog(self)
         try:
@@ -202,33 +208,37 @@ class Frame(gui.MainFrame):
 #
 #   utilities
 #
+
     def save_input_dir_to_config(self):
-        config = configparser.ConfigParser()
+        config = ConfigParser.ConfigParser()
         try:
             config.read(self.configfn)
-        except (configparser.ParsingError, configparser.MissingSectionHeaderError):
+        except (ConfigParser.ParsingError,
+                ConfigParser.MissingSectionHeaderError):
             pass  # Silently suppress parsing errors at this stage
-        if 'Previous session' not in config.sections():
-            config['Previous session'] = {}
-        config['Previous session']['input_dir'] = os.getcwd()
+        if not config.has_section("Previous session"):
+            config.add_section('Previous session')
+        config.set('Previous session', "input_dir",
+                   os.getcwdu().encode(sys.getfilesystemencoding()))
         try:
-            with open(self.configfn, 'w') as f:
+            with open(self.configfn, 'wb') as f:
                 config.write(f)
         except IOError:
             self.show_warning("Configuration file\n(%s)\ncould not be saved."
                               % self.configfn)
 
     def get_input_dir_from_config(self):
-        config = configparser.ConfigParser()
+        config = ConfigParser.ConfigParser()
         if not os.path.exists(self.configfn):
             return
         try:
             config.read(self.configfn)
-        except (configparser.ParsingError, configparser.MissingSectionHeaderError):
+        except (ConfigParser.ParsingError, 
+                ConfigParser.MissingSectionHeaderError):
             pass    # Silently suppress parsing errors at this stage
         try:
-            inputdir = config['Previous session']['input_dir']
-        except (configparser.NoSectionError, configparser.NoOptionError, KeyError):
+            inputdir = config.get('Previous session', 'input_dir', 0)
+        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
             self.show_warning("Configuration file '%s' is invalid.\n Using "
                               "current working directory." % self.configfn)
             return
@@ -244,22 +254,23 @@ class Frame(gui.MainFrame):
     def save_options_to_config(self):
 
         def set_option(option):
-            config['Options'][option] = str(getattr(self.opt, option))
+            config.set('Options', option, str(getattr(self.opt, option)))
 
         def set_dict_option(option):
             optdict = getattr(self.opt, option)
-            for key, val in list(optdict.items()):
+            for key, val in optdict.items():
                 optstr = '.'.join([option, key.replace(' ', '_')])
-                config['Options'][optstr] = str(val)
+                config.set('Options', optstr, str(val))
 
-        self.set_options_from_ui()
-        config = configparser.ConfigParser()
+        self.get_options_from_ui()
+        config = ConfigParser.ConfigParser()
         try:
             config.read(self.configfn)
-        except (configparser.ParsingError, configparser.MissingSectionHeaderError):
+        except (ConfigParser.ParsingError,
+                ConfigParser.MissingSectionHeaderError):
             pass  # Silently suppress parsing errors at this stage
-        if 'Options' not in config.sections():
-            config['Options'] = {}
+        if not config.has_section('Options'):
+            config.add_section('Options')
         set_option('output_file_format')
         set_option('csv_delimiter')
         set_option('action_if_output_file_exists')
@@ -279,10 +290,11 @@ class Frame(gui.MainFrame):
         set_dict_option('interpoint_relations')
         set_dict_option('outputs')
         try:
-            with open(self.configfn, 'w') as f:
+            with open(self.configfn, 'wb') as f:
                 config.write(f)
         except IOError:
-            self.show_warning("Configuration file\n(%s)\ncould not be saved." % self.configfn)
+            self.show_warning("Configuration file\n(%s)\ncould not be saved."
+                              % self.configfn)
 
     def load_options_from_config(self):
 
@@ -300,14 +312,16 @@ class Frame(gui.MainFrame):
         def check_int_option(opt, lower=None, upper=None):
             try:
                 setattr(self.opt, opt,
-                        stringconv.str_to_int(getattr(self.opt, opt), lower, upper))
+                        stringconv.str_to_int(getattr(self.opt, opt),
+                                              lower, upper))
             except ValueError:
                 show_invalid_option_warning(opt)
                 setattr(self.opt, opt, getattr(defaults, opt))
 
         def check_bool_option(opt):
             try:
-                setattr(self.opt, opt, stringconv.str_to_bool(getattr(self.opt, opt)))
+                setattr(self.opt, opt,
+                        stringconv.str_to_bool(getattr(self.opt, opt)))
             except ValueError:
                 show_invalid_option_warning(opt)
                 setattr(self.opt, opt, getattr(defaults, opt))
@@ -315,11 +329,11 @@ class Frame(gui.MainFrame):
         def check_bool_dict_option(opt):
             optdict = getattr(self.opt, opt)
             defaultdict = getattr(defaults, opt)
-            for key, val in list(optdict.items()):
+            for key, val in optdict.items():
                 optstr = '.'.join([opt, key.replace(" ", "_")])
-                if key not in list(getattr(defaults, opt).keys()):
-                    self.show_warning("Invalid option '%s' in configuration file '%s'."
-                                      % (optstr, self.configfn))
+                if not key in getattr(defaults, opt).keys():
+                    self.show_warning("Invalid option '%s' in configuration "
+                                      "file '%s'." % (optstr, self.configfn))
                     del optdict[key]
                 try:
                     optdict[key] = stringconv.str_to_bool(val)
@@ -329,30 +343,34 @@ class Frame(gui.MainFrame):
                                       "value." % (val, optstr, self.configfn))
                     optdict[key] = defaultdict[key]
 
-        config = configparser.ConfigParser()
+        config = ConfigParser.ConfigParser()
         if not os.path.exists(self.configfn):
             return
         try:
             config.read(self.configfn)
-        except (configparser.ParsingError, configparser.MissingSectionHeaderError):
+        except (ConfigParser.ParsingError,
+                ConfigParser.MissingSectionHeaderError):
             return     # Silently suppress parsing errors at this stage
-        if 'Options' not in config.sections():
-            return     # No options present in config file; silently use defaults
-        defaults = core.OptionData()
+        if not config.has_section('Options'):
+            return     # No options present in config file; silently use
+                       # default options
+        defaults = options.OptionData()
         for option in config.options('Options'):
             if '.' in option:
                 option_dict, option_key = option.split('.', 1)
                 option_key = option_key.replace("_", " ")
                 try:
                     getattr(self.opt,
-                            option_dict)[option_key] = config.get('Options', option)
+                            option_dict)[option_key] = config.get('Options',
+                                                                  option, 0)
                 except AttributeError:
                     pass   # So, attribute is invalid, but continue silently
             else:
-                setattr(self.opt, option, config.get('Options', option))
+                setattr(self.opt, option, config.get('Options', option, 0))
         check_str_option('output_file_format', ('excel', 'csv'))
         check_str_option('csv_delimiter', ('comma', 'tab'))
-        check_str_option('action_if_output_file_exists', ('enumerate', 'overwrite'))
+        check_str_option('action_if_output_file_exists', ('enumerate',
+                                                          'overwrite'))
         check_bool_option('output_filename_date_suffix')
         check_int_option('spatial_resolution', lower=0, upper=1000)
         check_int_option('shell_width', lower=0, upper=1000)
@@ -361,10 +379,9 @@ class Frame(gui.MainFrame):
         check_bool_option('run_monte_carlo')
         check_int_option('monte_carlo_runs', lower=1, upper=999)
         check_bool_option('determine_interpoint_dists')
-        check_str_option('monte_carlo_simulation_window',
-                         ('profile',
-                          'synapse', 'synapse + perisynapse',
-                          'synapse - perforations'))
+        check_str_option('monte_carlo_simulation_window', ('whole profile',
+                         'synapse', 'synapse + perisynapse',
+                         'synapse - perforations'))
         check_bool_option('monte_carlo_strict_location')
         check_str_option('interpoint_dist_mode', ('nearest neighbour', 'all'))
         check_bool_option('interpoint_shortest_dist')
@@ -400,18 +417,20 @@ class Frame(gui.MainFrame):
         self.ClusterDistUnitLabel.Enable(self.ClusterCheckBox.GetValue())                
         self.MonteCarloCheckBox.SetValue(self.opt.run_monte_carlo)
         self.MonteCarloRunsSpinCtrl.SetValue(self.opt.monte_carlo_runs)
-        self.SimulationWindowChoice.SetItems(['Profile', 'Synapse',
+        self.SimulationWindowChoice.SetItems(['Whole profile', 'Synapse',
                                               'Synapse + perisynapse',
                                               'Synapse - perforations'])
         self.SimulationWindowChoice.SetStringSelection(
             self.opt.monte_carlo_simulation_window)
         self.StrictLocCheckBox.SetValue(self.opt.monte_carlo_strict_location)
         self.MonteCarloRunsLabel.Enable(self.MonteCarloCheckBox.GetValue())
-        self.MonteCarloRunsSpinCtrl.Enable(self.MonteCarloCheckBox.GetValue())        
+        self.MonteCarloRunsSpinCtrl.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowChoice.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowLabel.Enable(self.MonteCarloCheckBox.GetValue())
-        self.OutputCheckListBox.SetCheckedStrings([key.capitalize() for key in self.opt.outputs
-                                                   if self.opt.outputs[key]])
+        self.StrictLocCheckBox.Enable(self.MonteCarloCheckBox.GetValue())
+        self.OutputCheckListBox.SetCheckedStrings(
+            [key.capitalize() for key in self.opt.outputs
+                if self.opt.outputs[key] is True])
         if self.opt.output_file_format == 'excel':
             self.OutputFormatRadioBox.SetStringSelection('Excel')
         elif self.opt.csv_delimiter == 'comma':
@@ -428,33 +447,37 @@ class Frame(gui.MainFrame):
         self.OtherSuffixTextCtrl.Enable(self.OtherSuffixCheckBox.GetValue())
         self.LogFilePickerCtrl.SetPath(version.title + '.log')
  
-    def set_options_from_ui(self):
+    def get_options_from_ui(self):
         self.opt.input_file_list = []
         for n in range(0, self.InputFileListCtrl.GetItemCount()):
             self.opt.input_file_list.append(os.path.join(
-                self.InputFileListCtrl.GetItemText(n, 1),
-                self.InputFileListCtrl.GetItemText(n, 0)))
+                self.InputFileListCtrl.GetItem(n, 1).m_text,
+                self.InputFileListCtrl.GetItem(n, 0).m_text))
         for key in self.opt.outputs:
             if key.capitalize() in self.OutputCheckListBox.GetCheckedStrings():
                 self.opt.outputs[key] = True
             else:
                 self.opt.outputs[key] = False
-        if self.OutputFormatRadioBox.GetStringSelection() == 'Excel':
+        if self.OutputFormatRadioBox.GetStringSelection() == "Excel":
             self.opt.output_file_format = 'excel'
-            self.opt.output_filename_ext = '.xlsx'
-        elif self.OutputFormatRadioBox.GetStringSelection() == 'Comma-delimited text':
+            self.opt.output_filename_ext = '.xls'
+        elif (self.OutputFormatRadioBox.GetStringSelection() ==
+              "Comma-delimited text"):
             self.opt.output_file_format = 'csv'
             self.opt.output_filename_ext = '.csv'
-            self.opt.csv_delimiter = 'comma'
-        elif self.OutputFormatRadioBox.GetStringSelection() == 'Tab-delimited text':
+            self.opt.csv_delimiter = "comma"
+        elif (self.OutputFormatRadioBox.GetStringSelection() ==
+              "Tab-delimited text"):
             self.opt.output_file_format = 'csv'
             self.opt.output_filename_ext = '.csv'
-            self.opt.csv_delimiter = 'tab'
+            self.opt.csv_delimiter = "tab"
         self.opt.action_if_output_file_exists = \
             self.IfOutputExistsRadioBox.GetStringSelection().lower()
-        self.opt.output_filename_date_suffix = self.DateSuffixCheckBox.GetValue()
+        self.opt.output_filename_date_suffix = \
+            self.DateSuffixCheckBox.GetValue()
         if self.OtherSuffixCheckBox.GetValue():
-            self.opt.output_filename_other_suffix = self.OtherSuffixTextCtrl.GetValue()
+            self.opt.output_filename_other_suffix = \
+                self.OtherSuffixTextCtrl.GetValue()
         self.opt.spatial_resolution = int(self.SpatResSpinCtrl.GetValue())
         self.opt.shell_width = int(self.ShellWidthSpinCtrl.GetValue())
         self.opt.determine_interpoint_dists = self.InterpointCheckBox.GetValue()
@@ -464,7 +487,7 @@ class Frame(gui.MainFrame):
                 self.opt.interpoint_relations[key] = True
             else:
                 self.opt.interpoint_relations[key] = False
-        if True not in self.opt.interpoint_relations.values():
+        if not True in self.opt.interpoint_relations.values():
             self.opt.determine_interpoint_dists = False
         self.opt.interpoint_dist_mode = \
             self.InterpointModeChoice.GetStringSelection().lower()
@@ -484,9 +507,11 @@ class Frame(gui.MainFrame):
             if os.path.dirname(f):
                 return os.path.dirname(f)
         return ""
-
+    
     def get_output_dir(self):
-        self.opt.output_dir = os.path.join(self.get_input_dir() or os.getcwd(), "out")
+        """ """     
+        self.opt.output_dir = os.path.join(self.get_input_dir() or os.getcwdu(),
+                                           "out")
         if not os.path.isdir(self.opt.output_dir):
             os.mkdir(self.opt.output_dir)
 
@@ -499,16 +524,18 @@ class Frame(gui.MainFrame):
         for fn in fli:
             if (os.path.isfile(fn) and
                     os.path.splitext(fn)[1] == self.opt.input_filename_ext):
-                self.InputFileListCtrl.InsertItem(c + n, os.path.basename(fn))
-                self.InputFileListCtrl.SetItem(c + n, 1, os.path.dirname(fn))
+                self.InputFileListCtrl.InsertStringItem(c + n,
+                                                        os.path.basename(fn))
+                self.InputFileListCtrl.SetStringItem(c + n, 1,
+                                                     os.path.dirname(fn))
                 n += 1
             elif os.path.isdir(fn):
                 for fn2 in os.listdir(fn):
                     if (os.path.isfile(os.path.join(fn, fn2)) and
-                            os.path.splitext(fn2)[1] ==
+                        os.path.splitext(fn2)[1] ==
                             self.opt.input_filename_ext):
-                        self.InputFileListCtrl.InsertItem(c + n, fn2)
-                        self.InputFileListCtrl.SetItem(c + n, 1, fn)
+                        self.InputFileListCtrl.InsertStringItem(c + n, fn2)
+                        self.InputFileListCtrl.SetStringItem(c + n, 1, fn)
                         n += 1
         if n > 0:
             self.InputFileListCtrl.SetColumnWidth(0, -1)
@@ -522,8 +549,10 @@ class Frame(gui.MainFrame):
 
     @staticmethod
     def set_input_file_list_ctrl_columns(parent):
-        parent.InsertColumn(col=0, format=wx.LIST_FORMAT_LEFT, heading='Name', width=-1)
-        parent.InsertColumn(col=1, format=wx.LIST_FORMAT_LEFT, heading='Path', width=-1)
+        parent.InsertColumn(col=0, format=wx.LIST_FORMAT_LEFT, heading='Name',
+                            width=-1)
+        parent.InsertColumn(col=1, format=wx.LIST_FORMAT_LEFT, heading='Path',
+                            width=-1)
 
     def set_log(self):  # hm can't I simplify this?
         if self.SaveLogCheckBox.GetValue():
@@ -533,7 +562,8 @@ class Frame(gui.MainFrame):
                 logfn = os.path.join(self.opt.output_dir, logfn)
             try:
                 if os.path.exists(logfn):
-                    if self.IfLogExistsRadioBox.GetStringSelection() == "Enumerate":
+                    if self.IfLogExistsRadioBox.GetStringSelection() == \
+                            "Enumerate":
                         logfn = file_io.enum_filename(logfn, 2)
                     else:
                         f = open(logfn, "a", 0)
@@ -543,7 +573,8 @@ class Frame(gui.MainFrame):
                     f = open(logfn, "w", 0)
                     f.close()
             except IOError:
-                self.show_error("Could not write to log file. Please choose another filename.")
+                self.show_error("Could not write to log file. Please choose "
+                                "another filename.")
                 return 0
             self.log = LogQueue(self, logfn, self.LogTextCtrl, mode)
         else:
@@ -552,7 +583,8 @@ class Frame(gui.MainFrame):
         return 1
 
     def show_warning(self, s):
-        dlg = wx.MessageDialog(self, s, version.title, wx.OK | wx.ICON_EXCLAMATION)
+        dlg = wx.MessageDialog(self, s, version.title, 
+                               wx.OK | wx.ICON_EXCLAMATION)
         try:
             dlg.ShowModal()
         finally:
@@ -564,9 +596,10 @@ class Frame(gui.MainFrame):
             dlg.ShowModal()
         finally:
             dlg.Destroy()
-    
+
     def yes_no_dialog(self, s):
-        dlg = wx.MessageDialog(self, s, version.title, wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT)
+        dlg = wx.MessageDialog(self, s, version.title,
+                               wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT)
         try:
             pressed = dlg.ShowModal()
         finally:
@@ -574,14 +607,14 @@ class Frame(gui.MainFrame):
         if pressed == wx.ID_YES:
             return True
         return False
-
-
+            
+    
 class ProcessThread(threading.Thread):
     def __init__(self, opt):
         threading.Thread.__init__(self)
         self.opt = opt
-        self.process_queue = queue.Queue()
-        self.error_queue = queue.Queue(1)
+        self.process_queue = Queue.Queue()
+        self.error_queue = Queue.Queue(1)
         self.opt.stop_requested = False
         self.exitcode = None
 
@@ -593,7 +626,9 @@ class ProcessThread(threading.Thread):
         try:
             self.exitcode = main.main_proc(self)
         except:  # yes, I do want to catch everything
-            exc_str = "".join(traceback.format_exception(*sys.exc_info()))
+            exc_str = "".join(traceback.format_exception(sys.exc_type,
+                                                         sys.exc_value,
+                                                         sys.exc_traceback))
             self.error_queue.put(exc_str)
 
 
@@ -602,27 +637,28 @@ class LogQueue:
         self.parent = parent
         self.fn = fn
         self.win = win
-        self.q = queue.Queue()
+        self.encoding = sys.getfilesystemencoding()
+        self.q = Queue.Queue()
         if self.fn != "":
             self.errstr = "* Error: could not write to log file: %s\n" % self.fn
-            if mode == 'Append':
+        if mode == 'Append':
+            try:
+                f = open(self.fn, "a", 0)
+                f.close()
+            except IOError:
                 try:
-                    f = open(self.fn, "a", 0)
-                    f.close()
-                except IOError:
-                    try:
-                        f = open(self.fn, "w", 0)
-                        f.close()
-                    except IOError:
-                        sys.stderr.write(self.errstr)
-                        self.fn = ""
-            elif mode == 'Overwrite' or mode == 'Enumerate':
-                try:
-                    f = open(self.fn, "w")
+                    f = open(self.fn, "w", 0)
                     f.close()
                 except IOError:
                     sys.stderr.write(self.errstr)
                     self.fn = ""
+        elif mode == 'Overwrite' or mode == 'Enumerate':
+            try:
+                f = open(self.fn, "w", 0)
+                f.close()
+            except IOError:
+                sys.stderr.write(self.errstr.encode(self.encoding))
+                self.fn = ""
 
     def write(self, s):
         self.q.put(s)
@@ -634,13 +670,13 @@ class LogQueue:
             self.parent.Update()
             if self.fn != "":
                 try:
-                    f = open(self.fn, "a")
+                    f = open(self.fn, "a", 0)
                     try:
-                        f.write(s)
+                        f.write(s.encode(self.encoding))
                     finally:
                         f.close()
                 except IOError:
-                    sys.stderr.write(self.errstr)
+                    sys.stderr.write(self.errstr.encode(self.encoding))
 
 
 class FileDropTarget(wx.FileDropTarget):
@@ -652,7 +688,6 @@ class FileDropTarget(wx.FileDropTarget):
     # noinspection PyMethodOverriding
     def OnDropFiles(self, x, y, fli):
         self.parent.add_files(fli)
-        return True
 
 
 class AboutDialog(gui.AboutDialog):
@@ -660,10 +695,12 @@ class AboutDialog(gui.AboutDialog):
     def __init__(self, parent):
         gui.AboutDialog.__init__(self, parent)
         self.TitleLabel.SetLabel(version.title)
-        self.IconBitmap.SetBitmap(wx.Bitmap(version.icon, wx.BITMAP_TYPE_ANY))
+        self.IconBitmap.SetBitmap(wx.BitmapFromImage(wx.Image(version.icon,
+                                                     wx.BITMAP_TYPE_ICO)))
         self.VersionLabel.SetLabel("Version %s" % version.version)
         self.LastModLabel.SetLabel("Last modified %s %s, %s." % version.date)
-        self.CopyrightLabel.SetLabel("Copyright 2001-%s %s." % (version.date[2], version.author))
+        self.CopyrightLabel.SetLabel("Copyright 2001-%s %s." % (version.date[2],
+                                                                version.author))
         self.LicenseLabel.SetLabel("Released under the terms of the MIT"
                                    " license.")
         self.EmailHyperlink.SetLabel("%s" % version.email)
@@ -680,10 +717,9 @@ class AboutDialog(gui.AboutDialog):
 class ViewFileDialog(gui.ViewFileDialog):
     def __init__(self, parent, fn):
         gui.ViewFileDialog.__init__(self, parent)
-        self.SetIcon(wx.Icon(version.icon, wx.BITMAP_TYPE_ICO))
         try:
             self.SetTitle(os.path.basename(fn))
-            f = open(fn, "r")
+            f = open(fn, "r", 0)
             try:
                 for s in f.readlines():
                     self.ViewFileTextCtrl.AppendText(s)

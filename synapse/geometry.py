@@ -1,6 +1,6 @@
+import functools
 import math
 import sys
-import types
 
 
 class Point(object):
@@ -17,7 +17,7 @@ class Point(object):
     def __str__(self):
         return '(' + str(self.x) + ', ' + str(self.y) + ')'
 
-    def __nonzero__(self):
+    def __bool__(self):
         """ True if both x and y are defined """
         if self.x is not None and self.y is not None:
             return True
@@ -32,6 +32,40 @@ class Point(object):
 
     def __ne__(self, p):
         if self.x != p.x or self.y != p.y:
+            return True
+        else:
+            return False
+
+    def __gt__(self, p):
+        """Used for sorting in Andrew's monotone chain algorithm for
+         determining convex hull of a list of points"""
+        if self.x > p.x:
+            return True
+        elif self.x < p.x:
+            return False
+        return self.y > p.y
+
+    def __lt__(self, p):
+        """Used for sorting in Andrew's monotone chain algorithm for
+         determining convex hull of a list of points"""
+        if self.x < p.x:
+            return True
+        elif self.x > p.x:
+            return False
+        return self.y < p.y
+
+    def __ge__(self, p):
+        """Used for sorting in Andrew's monotone chain algorithm for
+         determining convex hull of a list of points"""
+        if self == p or self > p:
+            return True
+        else:
+            return False
+
+    def __le__(self, p):
+        """Used for sorting in Andrew's monotone chain algorithm for
+         determining convex hull of a list of points"""
+        if self == p or self < p:
             return True
         else:
             return False
@@ -86,7 +120,7 @@ class Point(object):
             the point projects. If no projection is possible, return
             Point(None, None), None.
         """
-        mindist = float(sys.maxint)
+        mindist = float("inf")
         project = Point(None, None)
         seg0 = None
         for n in range(0, len(path) - 1):
@@ -114,7 +148,7 @@ class Point(object):
             the point projects. If no projection is possible, choose nearest
             endpoint as projection.
         """
-        mindist = float(sys.maxint)
+        mindist = float("inf")
         project = Point(None, None)
         seg0 = None
         for n in range(0, len(path) - 1):
@@ -142,7 +176,7 @@ class Point(object):
             Return projection point and first node of the path segment on which
             the point projects.
         """
-        mindist = float(sys.maxint)
+        mindist = float("inf")
         project = Point(None, None)
         seg0 = None
         for n in range(-1, len(path) - 1):
@@ -243,7 +277,7 @@ class Point(object):
     def perpend_dist_closed_path(self, m, dont_care_if_on_or_off_seg=True):
         """" Calculate distance from the point to a closed path m
         """
-        mindist = float(sys.maxint)
+        mindist = float("inf")
         on_m = False
         for n in range(-1, len(m) - 1):
             if (m[n].x != -1) and (m[n + 1].x != -1):
@@ -271,7 +305,7 @@ class Point(object):
              to the path, respectively. If neither negloc nor posloc is
              defined, absolute distance is returned.
         """
-        mindist = float(sys.maxint)
+        mindist = float("inf")
         on_m = False
         for n in range(0, len(m) - 1):
             if (m[n].x != -1) and (m[n + 1].x != -1):
@@ -296,11 +330,8 @@ class Point(object):
         # (posloc). Even (odd) number => the particle and negloc
         # (posloc) are on the same side of the path; odd number =>
         # different side.
-        if (negloc is not None and
-                self.segment_crossing_number(m, negloc) % 2 == 0):
-            mindist = -mindist
-        elif (posloc is not None and
-              self.segment_crossing_number(m, posloc) % 2 != 0):
+        if ((negloc and self.segment_crossing_number(m, negloc) % 2 == 0) or
+                (posloc and self.segment_crossing_number(m, posloc) % 2 != 0)):
             mindist = -mindist
         return mindist
 
@@ -326,7 +357,7 @@ class Point(object):
 class Vec(Point):
     def __rmul__(self, l):
         """ Multiplication with scalar """
-        if isinstance(l, types.IntType) or isinstance(l, types.FloatType):
+        if isinstance(l, int) or isinstance(l, float):
             return Vec(l * self.x, l * self.y)
         else:
             raise TypeError('First operand not a scalar')
@@ -357,6 +388,83 @@ class SegmentedPath(list):
             self.extend([Point(p.x, p.y) for p in pointli])
         except (AttributeError, IndexError):
             raise TypeError('not a list of Point elements')
+
+    def __str__(self):
+        s = ""
+        for e in self:
+            s = s + "%s\n" % e
+        return s
+
+    def length(self):
+        """Return length of a segmented path (assume path is open)"""
+        if len(self) == 0:
+            return 0.0
+        length = 0.0
+        for n in range(0, len(self) - 1):
+            if (self[n].x != -1) and (self[n + 1].x != -1):
+                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
+                                    (self[n + 1].y - self[n].y) ** 2)
+        return length
+
+    def perimeter(self):
+        """Return length of a segmented path (assume path is closed)"""
+        return self.length() + math.sqrt((self[-1].x - self[0].x) ** 2 +
+                                         (self[-1].y - self[0].y) ** 2)
+
+    def center_point(self):
+        """ Return center point of a segmented path (assume path is
+            open)
+        """
+        if len(self) == 1:
+            return Point(self[0].x, self[0].y)
+        r = self.length() / 2
+        length = 0.0
+        for n in range(0, len(self) - 1):
+            v = Vec(self[n + 1].x - self[n].x, self[n + 1].y - self[n].y)
+            length += v.length()
+            if length >= r:
+                break
+        return self[n] + ((v.length() - (length - r)) / v.length()) * v
+
+    def signed_area(self):
+        """Return signed area of polygon (assume path is closed)"""
+        if len(self) < 3:
+            return 0.0
+        a = (self[0].x - self[-1].x) * (self[-1].y + self[0].y)
+        for n in range(0, len(self) - 1):
+            a += (self[n + 1].x - self[n].x) * (self[n].y + self[n + 1].y)
+        return float(a) / 2
+
+    def area(self):
+        """Return area of polygon (assume path is closed)"""
+        try:
+            return abs(self.signed_area())
+        except TypeError:
+            return None
+
+    def contains(self, p):
+        """  Determine whether point p is inside polygon (assumes closed path);
+             Uses the crossing number method => works only with simple
+             polygons.
+        """
+        if not p:
+            return None
+        return p.is_within_polygon(self)
+
+    def centroid(self):
+        """  Return centroid (center of gravity) of a polygon (assume closed
+             path and no crossing vertices)
+        """
+        a_tot = self.signed_area()
+        if a_tot == 0:
+            return self.center_point()
+        cx, cy = 0., 0.
+        for n in range(1, len(self) - 1):
+            a_t = SegmentedPath([self[0], self[n], self[n + 1]]).signed_area()
+            # weighted centroid of triangle
+            cx += (self[0].x + self[n].x + self[n + 1].x) * a_t
+            cy += (self[0].y + self[n].y + self[n + 1].y) * a_t
+        return Point(cx / (3 * a_tot), cy / (3 * a_tot))
 
     def iterate_partial(self, n1, n2):
         """ Iterates over the elements in self, starting at element n1 and
@@ -402,9 +510,20 @@ class SegmentedPath(list):
         if not self.is_oriented_to_path(path):
             self.reverse()
 
+    def check_open_path(self):
+        """ Make sure that the open path does not intersect with itself
+            Uses the naive algorithm of checking every segment against
+            every other segment.
+        """
+        for n1 in range(0, len(self) - 3):
+            for n2 in range(n1 + 2, len(self) - 1):
+                if segment_intersection(self[n1], self[n1 + 1],
+                                        self[n2], self[n2 + 1]):
+                    return False
+        return True
+
     def bounding_box(self):
         """ Determines bounding box of self.
-            Returns ClosedPath.
         """
         hix = lox = self[0].x
         hiy = loy = self[0].y
@@ -417,76 +536,14 @@ class SegmentedPath(list):
                 hiy = n.y
             elif n.y < loy:
                 loy = n.y
-        return ClosedPath([Point(lox, loy), Point(hix, loy),
-                           Point(hix, hiy), Point(lox, hiy)])
+        return SegmentedPath([Point(lox, loy), Point(hix, loy),
+                              Point(hix, hiy), Point(lox, hiy)])
 
-# end of class SegmentedPath
-
-
-class ClosedPath(SegmentedPath):
-    def __init__(self, pointli=None):
-        super(ClosedPath, self).__init__(pointli)
-
-    def perimeter(self):
-        """ Return length of polygon
+    def convex_hull(self):
+        """ Returns convex hull of self.
         """
-        if len(self) == 0:
-            return 0.0
-        length = 0.0
-        for n in range(0, len(self) - 1):
-            if (self[n].x != -1) and (self[n + 1].x != -1):
-                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
-                                    (self[n + 1].y - self[n].y) ** 2)
-        length += math.sqrt((self[-1].x - self[0].x) ** 2 +
-                            (self[-1].y - self[0].y) ** 2)
-        return length
-
-    def length(self):
-        """ Return length of polygon
-        """
-        return self.perimeter()
-
-    def signed_area(self):
-        """ Return signed area of polygon
-        """
-        if len(self) < 3:
-            return 0.0
-        a = (self[0].x - self[-1].x) * (self[-1].y + self[0].y)
-        for n in range(0, len(self) - 1):
-            a += (self[n + 1].x - self[n].x) * (self[n].y + self[n + 1].y)
-        return float(a) / 2
-
-    def area(self):
-        """ Return area of polygon
-        """
-        try:
-            return abs(self.signed_area())
-        except TypeError:
-            return None
-
-    def contains(self, p):
-        """  Determine whether point p is inside polygon;
-             Uses the crossing number method => works only with simple
-             polygons.
-        """
-        if not p:
-            return None
-        return p.is_within_polygon(self)
-
-    def centroid(self):
-        """  Return centroid (center of gravity) of a polygon (assume
-             no crossing vertices)
-        """
-        a_tot = self.signed_area()
-        if a_tot == 0:
-            return OpenPath(self).center_point()
-        cx, cy = 0., 0.
-        for n in range(1, len(self) - 1):
-            a_t = ClosedPath([self[0], self[n], self[n + 1]]).signed_area()
-            # weighted centroid of triangle
-            cx += (self[0].x + self[n].x + self[n + 1].x) * a_t
-            cy += (self[0].y + self[n].y + self[n + 1].y) * a_t
-        return Point(cx / (3 * a_tot), cy / (3 * a_tot))
+        # Calls global method for now.
+        return convex_hull(self)
 
     def is_simple_polygon(self):
         """ Makes sure that the closed path self is a simple polygon,
@@ -504,7 +561,7 @@ class ClosedPath(SegmentedPath):
         return True
 
     def is_within_polygon(self, path):
-        """ Determines if self is completely within path. Assumes that
+        """ Return True if self is completely within path. Assumes that
             both self and path are closed and simple.
         """
         for n in range(-1, len(self) - 1):
@@ -516,11 +573,9 @@ class ClosedPath(SegmentedPath):
                     return False
         return True
 
-    def overlaps_polygon(self, path):
-        """ Determines whether polygon self and polygon path overlap.
+    def crosses_polygon(self, path):
+        """ Return True if polygon self intersects any edge of path.
         """
-        if self.is_within_polygon(path) or path.is_within_polygon(self):
-            return True
         for n1 in range(-1, len(self) - 1):
             for n2 in range(-1, len(path) - 1):
                 if segments_intersect_or_coincide(self[n1], self[n1 + 1],
@@ -528,53 +583,50 @@ class ClosedPath(SegmentedPath):
                     return True
         return False
 
-
-class OpenPath(SegmentedPath):
-    def __init__(self, pointli=None):
-        super(OpenPath, self).__init__(pointli)
-
-    def length(self):
-        """ Return length of the path
+    def overlaps_polygon(self, path):
+        """ Return True if polygon self and polygon path overlap,
+            including if any of the polygons is completely contained
+            within the other.
         """
-        if len(self) == 0:
-            return 0.0
-        length = 0.0
-        for n in range(0, len(self) - 1):
-            if (self[n].x != -1) and (self[n + 1].x != -1):
-                length += math.sqrt((self[n + 1].x - self[n].x) ** 2 +
-                                    (self[n + 1].y - self[n].y) ** 2)
-        return length
+        if self.is_within_polygon(path) or path.is_within_polygon(self):
+            return True
+        return self.crosses_polygon(path)
 
-    def center_point(self):
-        """ Return center point of the path
+    def feret_diameter(self):
+        """ Determines maximum Feret diameter of the polygon's convex hull.
+            After David Eppstein's implementation.
         """
-        if len(self) == 1:
-            return Point(self[0].x, self[0].y)
-        r = self.length() / 2
-        length = 0.0
-        for n in range(0, len(self) - 1):
-            v = Vec(self[n + 1].x - self[n].x, self[n + 1].y - self[n].y)
-            length += v.length()
-            if length >= r:
-                break
-        return self[n] + ((v.length() - (length - r)) / v.length()) * v
+        def rotating_calipers():
+            upper, lower = convex_hull_andrew(self)
+            i = 0
+            j = len(lower) - 1
+            while i < len(upper) - 1 or j > 0:
+                yield upper[i], lower[j]
+                if i == len(upper) - 1:
+                    j -= 1
+                elif j == 0:
+                    i += 1
+                elif ((upper[i+1].y - upper[i].y) *
+                        (lower[j].x - lower[j-1].x) >
+                        (lower[j].y - lower[j-1].y) *
+                        (upper[i+1].x - upper[i].x)):
+                    i += 1
+                else:
+                    j -= 1
 
-    def check_open_path(self):
-        """ Make sure that the open path does not intersect with itself
-            Uses the naive algorithm of checking every segment against
-            every other segment.
-        """
-        for n1 in range(0, len(self) - 3):
-            for n2 in range(n1 + 2, len(self) - 1):
-                if segment_intersection(self[n1], self[n1 + 1],
-                                        self[n2], self[n2 + 1]):
-                    return False
-        return True
+        maxd = 0
+        for p, q in rotating_calipers():
+            d = Vec(p.x - q.x, p.y - q.y).length()
+            if d > maxd:
+                maxd = d
+        return maxd
 
+
+# end of class SegmentedPath
 
 def to_metric_units(l, pixelwidth):
-    """ Scale length l (in pixels) to metric units, using supplied
-        pixel width
+    """Scale length l (in pixels) to metric units,
+       using supplied pixel width
     """
     try:
         return l * pixelwidth
@@ -663,17 +715,17 @@ def segments_intersect_or_coincide(a, b, c, d):
     return False
 
 
-def convex_hull(pointli):
+def convex_hull_graham(pointli):
     """Determine the convex hull of the points in pointli.
 
     Uses Graham's algorithm after O'Rourke (1998).
-    Returns a ClosedPath.
+    Returns a SegmentedPath.
     """
 
     def signed_area(a, b, c):
         # Computes the signed area of the triangle formed by a, b and c;
         # if this area < 0, then c is strictly left of the line a->b
-        return ClosedPath([a, b, c]).signed_area()
+        return SegmentedPath([a, b, c]).signed_area()
 
     def comp_func(pi, pj):
         a = signed_area(p0, pi, pj)
@@ -703,12 +755,12 @@ def convex_hull(pointli):
 
     # main function body
     if len(pointli) <= 2:  # if less than 3 points, the convex hull is equal
-        return ClosedPath(pointli[:])  # to pointli
+        return SegmentedPath(pointli[:])  # to pointli
     if len(pointli) == 3:  # if 3 points:
         if signed_area(*pointli) != 0:  # if the points are not collinear,
-            return ClosedPath(pointli[:])  # return all points,
+            return SegmentedPath(pointli[:])  # return all points,
         else:  # else only the end points
-            return ClosedPath([pointli[0], pointli[2]])
+            return SegmentedPath([pointli[0], pointli[2]])
     # find the rightmost lowest point
     p0 = pointli[0]
     for p in pointli[1:]:
@@ -717,7 +769,7 @@ def convex_hull(pointli):
     # sort points with respect to angle between the vector p0->p and the x axis
     for p in pointli:
         p.delete = False
-    sortedli = sorted([p for p in pointli if p != p0], comp_func)
+    sortedli = sorted([p for p in pointli if p != p0], key=functools.cmp_to_key(comp_func))
     # delete points marked for deletion (i.e., non-extreme points on the hull)
     for p in sortedli[:]:  # iterate over a copy of sortedli because we
         if p.delete:  # will delete marked points in sortedli
@@ -734,4 +786,52 @@ def convex_hull(pointli):
             i += 1
         else:
             stack.pop()
-    return ClosedPath(stack)
+    return SegmentedPath(stack)
+
+
+def convex_hull_andrew(pointli):
+    """Determine the convex hull of the points in pointli.
+
+    Uses Andrew's monotone chain algorithm, after David Eppstein's recipe.
+
+    Returns a tuple consisting of upper and a lower hulls (as SegmentedPaths).
+    """
+
+    def orientation(p1, p2, p3):
+        """ Return positive if p1-p2-p3 are clockwise,
+            negative if counterclockwise, and zero if collinear.
+        """
+        return (p2.y - p1.y) * (p3.x - p1.x) - (p2.x - p1.x) * (p3.y - p1.y)
+
+    upper = SegmentedPath()
+    lower = SegmentedPath()
+    for p in sorted(pointli):
+        while len(upper) > 1 and orientation(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+        while len(lower) > 1 and orientation(lower[-2], lower[-1], p) >= 0:
+            lower.pop()
+        lower.append(p)
+    return upper, lower
+
+
+def convex_hull_andrew_merged(pointli):
+    """Determine the convex hull of the points in pointli.
+
+    Merges the upper and lower hulls yielded by convex_hull_andrew(),
+    and returns the resulting SegmentedPath.
+    """
+    upper, lower = convex_hull_andrew(pointli)
+    lower.reverse()
+    merged = SegmentedPath(upper + lower[1:-1])
+    return merged
+
+
+def convex_hull(pointli):
+    """Determine the convex hull of the points in pointli.
+
+    Uses Andrew's algorithm.
+    
+    Returns a SegmentedPath.
+    """
+    return convex_hull_andrew_merged(pointli)

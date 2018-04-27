@@ -1,10 +1,10 @@
-import exceptions
 import sys
 
 
-class ProfileError(exceptions.Exception):
+class ProfileError(Exception):
     def __init__(self, profile, msg):
-        self.args = (profile, msg + ".")
+        self.profile = profile
+        self.msg = msg + "."
 
 
 def profile_warning(profile, msg):

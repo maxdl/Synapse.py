@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from ez_setup import use_setuptools
 use_setuptools()
@@ -17,13 +16,13 @@ setup(
     author="Max Larsson",
     author_email="max.larsson@liu.se",
     license="MIT",
-    url="http://www.hu.liu.se/forskning/larsson-max/software",
+    url="http://www.liu.se/medfak/forskning/larsson-max/software",
     packages=find_packages(),
     entry_points={
     'console_scripts':
-        ['Synapse = synapse.Synapse:main'],
+        ['Synapse = Synapse:main'],
     'gui_scripts':
-        ['Synapse = synapse.Synapse:main']        
+        ['Synapse = Synapse:main']
     },
     data_files=[('synapse', ['synapse/syn.ico'])],
     install_requires=['pyexcelerator']
