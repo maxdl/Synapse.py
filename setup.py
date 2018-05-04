@@ -25,5 +25,5 @@ setup(
         ['Synapse = Synapse:main']
     },
     data_files=[('synapse', ['synapse/syn.ico'])],
-    install_requires=['pyexcelerator']
+    install_requires=['openpyxl']
 )

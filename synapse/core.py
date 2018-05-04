@@ -54,7 +54,7 @@ class ClusterData(list):
             raise TypeError("not a point list")
         self.convex_hull = geometry.SegmentedPath()
 
-    def lateral_dist_syn(self, c2, mem):
+    def lateral_dist_to_cluster(self, c2, mem):
         """ Determine lateral distance to a cluster c2 along postsynaptic
             element membrane.
         """
@@ -73,9 +73,9 @@ class ProfileData:
         self.holeli = []
         self.psdli = []
         self.pli = []
+        self.randomli = []
         self.posel = geometry.SegmentedPath()
         self.prsel = geometry.SegmentedPath()
-        self.randomli = []
         self.mcli = []
         self.clusterli = []
         self.pp_distli, self.pp_latdistli = [], []
@@ -86,25 +86,19 @@ class ProfileData:
         self.metric_unit = ''
         self.posloc = geometry.Point()
         self.negloc = geometry.Point()
-        self.total_synm = geometry.SegmentedPath()
+        self.total_posm = geometry.SegmentedPath()
         self.perimeter = None
         self.feret = None
         self.warnflag = False
         self.errflag = False
-        self.spatial_resolution_in_pixels = None
-        self.total_posm = geometry.SegmentedPath()
-        self.postsynloc = geometry.Point()
-        self.pli = []
-        self.gridli = None
-        self.randomli = None
 
     def process(self):
         """ Parse profile data from a file and determine distances
         """
         try:
-            sys.stdout.write("Processing profile...\n")
             self.__parse()
             self.__check_paths()
+            sys.stdout.write("Processing profile...\n")
             self.prsel.orient_to_path(self.posel)
             for p in self.psdli:
                 p.adjust_psd()
@@ -116,7 +110,7 @@ class ProfileData:
                 p.cleft = p.get_cleft()
                 p.cleft_width = p.cleft_width_average()
             self.total_posm = self.__get_total_posm()
-            self.postsynloc = self.psdli[0].psdloc
+            self.posloc = self.psdli[0].psdloc
             self.__compute_stuff()
             if self.opt.determine_interpoint_dists:
                 sys.stdout.write("Determining interparticle distances...\n")
@@ -206,56 +200,42 @@ class ProfileData:
 
     def __run_monte_carlo(self):
         
-        def is_valid(p_candidate):
-            d = p_candidate.perpend_dist(self.posel)
-            if (d is None or abs(d) > border or p_candidate.is_within_hole()
-                    or p_candidate in mcli[n]['pli']):
+        def in_window(p_candidate):
+            d = p_candidate.dist_to_posel
+            if (p_candidate.dist_to_posel is None or abs(p_candidate.dist_to_posel) > shell_width or
+                    p_candidate.dist_to_prsel is None or p_candidate.is_within_hole):
                 return False
-            if self.opt.monte_carlo_simulation_window == 'profile':
+            if self.opt.monte_carlo_simulation_window == 'shell':
                 return True
             if self.opt.monte_carlo_strict_location:
-                latloc = p_candidate.get_strict_lateral_location()
+                latloc = p_candidate.strict_lateral_location
             else:
-                latloc = p_candidate.get_lateral_location()
+                latloc = p_candidate.lateral_location
             if (self.opt.monte_carlo_simulation_window == 'synapse' and
                     latloc in ('synaptic', 'within perforation')):
                 return True
-            if (self.opt.monte_carlo_simulation_window ==
-                    'synapse - perforations' and latloc == 'synaptic'):
+            if (self.opt.monte_carlo_simulation_window == 'synapse - perforations' and
+                    latloc == 'synaptic'):
                 return True
-            if (self.opt.monte_carlo_simulation_window ==
-                    'synapse + perisynapse' and latloc in
-                    ('synaptic', 'within perforation', 'perisynaptic')):
+            if (self.opt.monte_carlo_simulation_window == 'synapse + perisynapse' and
+                    latloc in ('synaptic', 'within perforation', 'perisynaptic')):
                 return True
-            # TODO : include PSD as a window option
+            if self.opt.monte_carlo_simulation_window == 'postsynaptic density':
+                p_candidate.get_psd_association()
+                if self.opt.monte_carlo_strict_location and p_candidate.is_within_psd:
+                    return True
+                if not self.opt.monte_carlo_strict_location and p_candidate.is_associated_with_psd:
+                    return True
             return False
 
-        pli = self.pli
-        if self.opt.monte_carlo_strict_location:
-            locvar = "strict_lateral_location"
-        else:
-            locvar = "lateral_location"
-        if self.opt.monte_carlo_simulation_window == "whole profile":
-            # particles outside shell have been discarded
-            numpoints = len(pli)
-        elif self.opt.monte_carlo_simulation_window == "synapse":
-            numpoints = len([p for p in pli
-                             if getattr(p, locvar) in ("synaptic", "within perforation")])
-        elif self.opt.monte_carlo_simulation_window == "synapse - perforations":
-            numpoints = len([p for p in pli if getattr(p, locvar) == "synaptic"])
-        elif self.opt.monte_carlo_simulation_window == "synapse + perisynapse":
-            numpoints = len([p for p in pli
-                             if getattr(p, locvar) in
-                             ("synaptic", "within perforation", "perisynaptic")])
-        else:
-            return []
+        shell_width = geometry.to_pixel_units(self.opt.shell_width, self.pixelwidth)
+        numpoints = len([p for p in self.pli if in_window(p)])
         allpaths = geometry.SegmentedPath(
             [p for path in (self.posel, self.prsel,
                             [q for _psd in self.psdli for q in _psd],
                             [r for h in self.holeli for r in h])
              for p in path])
         box = allpaths.bounding_box()
-        border = geometry.to_pixel_units(min(self.opt.shell_width, self.opt.spatial_resolution))
         mcli = []
         for n in range(0, self.opt.monte_carlo_runs):
             if self.opt.stop_requested:
@@ -269,10 +249,10 @@ class ProfileData:
             p = point.Point()
             for __ in range(0, numpoints):
                 while True:
-                    x = random.randint(int(box[0].x - border), int(box[1].x + border) + 1)
-                    y = random.randint(int(box[0].y - border), int(box[2].y + border) + 1)
+                    x = random.randint(int(box[0].x - shell_width), int(box[1].x + shell_width) + 1)
+                    y = random.randint(int(box[0].y - shell_width), int(box[2].y + shell_width) + 1)
                     p = point.Point(x, y, ptype='simulated', profile=self)
-                    if p not in mcli[n]['pli'] and is_valid(p):
+                    if p not in mcli[n]['pli'] and in_window(p):
                         break
                 # escape the while loop when a valid simulated point is found
                 mcli[n]['pli'].append(p)
@@ -288,11 +268,11 @@ class ProfileData:
                         mcli[n]['simulated - simulated']['dist'].append(distlis[0])
                         mcli[n]['simulated - simulated']['latdist'].append(distlis[1])
                 if self.opt.interpoint_relations['simulated - particle']:
-                    distlis = self.__get_interpoint_distances2(mcli[n]['pli'], pli)
+                    distlis = self.__get_interpoint_distances2(mcli[n]['pli'], self.pli)
                     mcli[n]['simulated - particle']['dist'].append(distlis[0])
                     mcli[n]['simulated - particle']['latdist'].append(distlis[1])
                 if self.opt.interpoint_relations['particle - simulated']:
-                    distlis = self.__get_interpoint_distances2(pli, mcli[n]['pli'])
+                    distlis = self.__get_interpoint_distances2(self.pli, mcli[n]['pli'])
                     mcli[n]['particle - simulated']['dist'].append(distlis[0])
                     mcli[n]['particle - simulated']['latdist'].append(distlis[1])
         if self.opt.determine_clusters:
@@ -361,8 +341,6 @@ class ProfileData:
         li = file_io.read_file(self.inputfn)
         if not li:
             raise ProfileError(self, "Could not open input file")
-        self.psdli = []
-        self.holeli = []
         while li:
             s = li.pop(0).replace('\n', '').strip()
             if s.split(' ')[0].upper() == 'IMAGE':

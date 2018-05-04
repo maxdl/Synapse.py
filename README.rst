@@ -12,7 +12,7 @@ point patterns and synaptic-like structures.
 Synapse.py is used in conjunction with its companion ImageJ plugin,
 Synapse_.java.
 
-Please see the `website <http://www.hu.liu.se/forskning/larsson-max/software>`_
+Please see the `website <http://www.liu.se/medfak/forskning/larsson-max/software>`_
 for more information.
 
 License

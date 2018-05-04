@@ -61,33 +61,37 @@ class Point(geometry.Point):
             self.profile.n_discarded[self.ptype] += 1
             return
 
-        if self.is_within_hole:
-            mark_to_discard("Located within a profile hole")
+        if self.dist_to_posel is None:
+            mark_to_discard("Could not project on postsynaptic element")
+            return
+        if self.dist_to_prsel is None:
+            mark_to_discard("Could not project on presynaptic element")
             return
         if not self.is_within_shell:
             mark_to_discard("Located outside the shell")
             return
-        __ = self.dist_to_posel
-        __ = self.dist_to_prsel
+        if self.is_within_hole:
+            mark_to_discard("Located within a profile hole")
+            return
         __ = self.lateral_location
         __ = self.strict_lateral_location
         __ = self.axodendritic_location
         __ = self.is_within_postsynaptic_membrane_shell
         __ = self.is_postsynaptic_membrane_associated
         __ = self.is_presynaptic_membrane_associated
-        self.__get_lateral_dist_psd()
-        self.__get_psd_association()
+        self.get_lateral_dist_psd()
+        self.get_psd_association()
 
     @lazy_property
     def dist_to_posel(self):
         """Return perpendicular distance to postsynaptic element membrane"""
-        return self.perpend_dist(self.profile.posel, posloc=self.profile.postsynloc)
+        return self.perpend_dist(self.profile.posel, posloc=self.profile.posloc)
 
     @lazy_property
     def dist_to_prsel(self):
         """Return perpendicular distance to postsynaptic element membrane"""
         if len(self.profile.prsel) > 0:
-            return self.perpend_dist(self.profile.prsel, posloc=self.profile.postsynloc)
+            return self.perpend_dist(self.profile.prsel, posloc=self.profile.posloc)
         else:
             return None
 
@@ -127,7 +131,8 @@ class Point(geometry.Point):
         # of the postsynaptic membrane
         for psd in self.profile.psdli:
             if (self.lateral_dist_syn(self.profile.posel, psd.posm) -
-                    self.profile.spatial_resolution_in_pixels <= psd.posm.length() / 2):
+                    geometry.to_pixel_units(self.opt.spatial_resolution,
+                                            self.profile.pixelwidth) <= psd.posm.length() / 2):
                 return "synaptic"
         # If not synaptic but still within the extent of the synaptic
         # membrane
@@ -144,7 +149,8 @@ class Point(geometry.Point):
         # above.
         for psd in self.profile.psdli:
             if (self.lateral_dist_syn(self.profile.posel, psd.posm) -
-                    self.profile.spatial_resolution_in_pixels <= psd.posm.length()):
+                    geometry.to_pixel_units(self.opt.spatial_resolution,
+                                            self.profile.pixelwidth) <= psd.posm.length()):
                 return "perisynaptic"
         # If none of the above
         return "extrasynaptic"
@@ -195,7 +201,7 @@ class Point(geometry.Point):
         else:
             return "neither pre- or postsynaptic"
 
-    def __get_lateral_dist_psd(self):
+    def get_lateral_dist_psd(self):
         mindist = sys.maxsize
         nearest_psd = None
         for psd in self.profile.psdli:
@@ -213,7 +219,9 @@ class Point(geometry.Point):
         self.norm_lateral_dist_psd = normdist
         self.nearest_psd = nearest_psd
 
-    def __get_psd_association(self):
+    def get_psd_association(self):
+        if self.is_within_psd is not None:
+            return
         is_within_psd = False
         is_associated_with_psd = False
         associated_psd = None
@@ -225,7 +233,8 @@ class Point(geometry.Point):
                 associated_psd = psd
                 break
             dist = self.perpend_dist_closed_path(psd.psdposm, dont_care_if_on_or_off_seg=True)
-            if dist <= self.profile.spatial_resolution_in_pixels:
+            if dist <= geometry.to_pixel_units(self.opt.spatial_resolution,
+                                               self.profile.pixelwidth):
                 is_associated_with_psd = True
                 if dist < mindist:
                     associated_psd = psd
@@ -237,7 +246,8 @@ class Point(geometry.Point):
     @lazy_property
     def is_postsynaptic_membrane_associated(self):
         if (self.dist_to_posel is not None and
-                abs(self.dist_to_posel) <= self.profile.spatial_resolution_in_pixels):
+                abs(self.dist_to_posel) <= geometry.to_pixel_units(self.opt.spatial_resolution,
+                                                                   self.profile.pixelwidth)):
             return True
         else:
             return False
@@ -245,12 +255,13 @@ class Point(geometry.Point):
     @lazy_property
     def is_presynaptic_membrane_associated(self):
         if (self.dist_to_prsel is not None and
-                abs(self.dist_to_prsel) <= self.profile.spatial_resolution_in_pixels):
+                abs(self.dist_to_prsel) <= geometry.to_pixel_units(self.opt.spatial_resolution,
+                                                                   self.profile.pixelwidth)):
             return True
         else:
             return False
 
-    def determine_nearest_neighbour(self, pointli):
+    def get_nearest_neighbour(self, pointli):
         # Assumes that only valid (projectable, within shell etc) points
         # are in pointli
         mindist = float(sys.maxsize)
@@ -265,7 +276,7 @@ class Point(geometry.Point):
             nearest_neighbour_dist = mindist
             return nearest_neighbour_dist
 
-    def determine_nearest_lateral_neighbour(self, pointli):
+    def get_nearest_lateral_neighbour(self, pointli):
         # Assumes that only valid (projectable, within shell etc) points
         # are in pointli
         mindist = float(sys.maxsize)
@@ -285,7 +296,7 @@ class Point(geometry.Point):
             Overrides function in geometry.Point, which only works
             with a closed path.
         """
-        path = geometry.OpenPath()
+        path = geometry.SegmentedPath()
         p2_project, p2_seg_project = p2.project_on_path_or_endnode(sel)
         project, seg_project = self.project_on_path_or_endnode(sel)
         path.extend([project, p2_project])

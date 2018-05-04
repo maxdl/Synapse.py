@@ -103,7 +103,17 @@ class Frame(gui.MainFrame):
         self.MonteCarloRunsSpinCtrl.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowChoice.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowLabel.Enable(self.MonteCarloCheckBox.GetValue())
-        self.StrictLocCheckBox.Enable(self.MonteCarloCheckBox.GetValue())
+        if (not self.MonteCarloCheckBox.GetValue() or
+                self.SimulationWindowChoice.GetStringSelection().lower() == "shell"):
+            self.StrictLocCheckBox.Enable(False)
+        else:
+            self.StrictLocCheckBox.Enable(True)
+
+    def OnSimulationWindowChoice(self, event):
+        if self.SimulationWindowChoice.GetStringSelection() == 'Shell':
+            self.StrictLocCheckBox.Enable(False)
+        else:
+            self.StrictLocCheckBox.Enable(True)
 
     def OnOtherSuffixCheckBox(self, event):
         self.OtherSuffixTextCtrl.Enable(self.OtherSuffixCheckBox.GetValue())
@@ -400,9 +410,10 @@ class Frame(gui.MainFrame):
         self.ClusterDistUnitLabel.Enable(self.ClusterCheckBox.GetValue())                
         self.MonteCarloCheckBox.SetValue(self.opt.run_monte_carlo)
         self.MonteCarloRunsSpinCtrl.SetValue(self.opt.monte_carlo_runs)
-        self.SimulationWindowChoice.SetItems(['Profile', 'Synapse',
+        self.SimulationWindowChoice.SetItems(['Shell', 'Synapse',
                                               'Synapse + perisynapse',
-                                              'Synapse - perforations'])
+                                              'Synapse - perforations',
+                                              'Postsynaptic density'])
         self.SimulationWindowChoice.SetStringSelection(
             self.opt.monte_carlo_simulation_window)
         self.StrictLocCheckBox.SetValue(self.opt.monte_carlo_strict_location)
@@ -410,6 +421,11 @@ class Frame(gui.MainFrame):
         self.MonteCarloRunsSpinCtrl.Enable(self.MonteCarloCheckBox.GetValue())        
         self.SimulationWindowChoice.Enable(self.MonteCarloCheckBox.GetValue())
         self.SimulationWindowLabel.Enable(self.MonteCarloCheckBox.GetValue())
+        if (not self.MonteCarloCheckBox.GetValue() or
+                self.opt.monte_carlo_simulation_window == 'shell'):
+            self.StrictLocCheckBox.Enable(False)
+        else:
+            self.StrictLocCheckBox.Enable(True)
         self.OutputCheckListBox.SetCheckedStrings([key.capitalize() for key in self.opt.outputs
                                                    if self.opt.outputs[key]])
         if self.opt.output_file_format == 'excel':

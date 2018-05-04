@@ -89,7 +89,7 @@ class PSD(geometry.SegmentedPath):
         prsm = geometry.SegmentedPath()
         p1, node1 = self[0].project_on_path_or_endnode(self.profile.prsel)
         p2, node2 = self[-1].project_on_path_or_endnode(self.profile.prsel)
-        if not None in (node1, node2):
+        if None not in (node1, node2):
             # Now we have the projections of the psd endnodes on prsel.
             # But if the prsel is far from a psd endnode, and the psd
             # is very curved, the projection might not coincide with
@@ -98,8 +98,8 @@ class PSD(geometry.SegmentedPath):
             # projections are on the posm, and if these are closer than
             # the projections of psd endnodes on prsel. If so, use them
             # instead. Phew! (04/03/2003)
-            p0, foo = self.profile.prsel[0].project_on_path(
-                self.posm)  # should be self.posm? 10.11.07 / ML
+            # should be self.posm? 10.11.07 / ML
+            p0, foo = self.profile.prsel[0].project_on_path(self.posm)
             p_n, foo = self.profile.prsel[-1].project_on_path(self.posm)
             if p0 and p0.dist(p1) < self[0].dist(p1):
                 p1 = self.profile.prsel[0]

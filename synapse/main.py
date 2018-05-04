@@ -162,6 +162,7 @@ def save_output(profileli, opt):
             return
         with file_io.FileWriter("%s.summary" % ptype, opt) as f:
             f.writerow(["%s number (as appearing in input file)" % pstr.capitalize(),
+                        "Coordinates (in pixels)",
                         "Axodendritic location",                        
                         "Distance to postsynaptic element membrane",
                         "Distance to presynaptic element membrane",                        
@@ -180,6 +181,7 @@ def save_output(profileli, opt):
                         "Input file",
                         "Comment"])
             f.writerows([[n+1,
+                          p,
                           p.axodendritic_location,                           
                           m(p.dist_to_posel, pro.pixelwidth),
                           m(p.dist_to_prsel, pro.pixelwidth),
@@ -192,7 +194,7 @@ def save_output(profileli, opt):
                           m(pro.total_posm.length(), pro.pixelwidth),
                           m(sum([psd.posm.length() for psd in pro.psdli]),
                             pro.pixelwidth),
-                          m(p.closest_psd.posm.length(), pro.pixelwidth),
+                          m(p.nearest_psd.posm.length(), pro.pixelwidth),
                           pro.presyn_profile,
                           pro.postsyn_profile,
                           pro.id,
@@ -295,7 +297,7 @@ def save_output(profileli, opt):
             return
         table = [["Run %d" % (n + 1) for n in range(0, opt.monte_carlo_runs)]]
         for pro in eval_proli:
-            table.extend(map(m_li, *[[p.dist_to_posel for p in li["pli"]]
+            table.extend(map(m_li, *[[p.dist_to_posel for p in li['pli']]
                                      for li in pro.mcli]))
         with file_io.FileWriter(
                 "simulated.postsynaptic.element.membrane.distances", opt) as f:

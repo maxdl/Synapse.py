@@ -22,7 +22,7 @@ class OptionData:
         self.within_cluster_dist = 50
         self.run_monte_carlo = False
         self.monte_carlo_runs = 99
-        self.monte_carlo_simulation_window = 'profile'
+        self.monte_carlo_simulation_window = 'shell'
         self.monte_carlo_strict_location = False
         self.determine_interpoint_dists = False
         self.interpoint_dist_mode = 'nearest neighbour'
