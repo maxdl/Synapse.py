@@ -1,3 +1,4 @@
+import itertools
 import os.path
 import sys
 import time
@@ -264,7 +265,7 @@ def save_output(profileli, opt):
                                     for prefix in prefixli]):
                 cols[n].extend([m(e, pro.pixelwidth) for e in li])
         # transpose cols and append to table
-        table.extend(map(lambda *col: [e if e is not None else "" for e in col], *cols))
+        table.extend(list(itertools.zip_longest(*cols, fillvalue="")))
         with file_io.FileWriter("interpoint.summary", opt) as f:
             f.writerows(table)
 
@@ -289,16 +290,12 @@ def save_output(profileli, opt):
             f.writerows(table)
 
     def write_mc_dist_to_posel():
-
-        def m_li(*_li):
-            return [m(x, pro.pixelwidth) for x in _li]
-
         if not opt.run_monte_carlo:
             return
         table = [["Run %d" % (n + 1) for n in range(0, opt.monte_carlo_runs)]]
         for pro in eval_proli:
-            table.extend(map(m_li, *[[p.dist_to_posel for p in li['pli']]
-                                     for li in pro.mcli]))
+            table.extend(itertools.zip_longest(*[[m(p.dist_to_posel, pro.pixelwidth)
+                                                  for p in li['pli']] for li in pro.mcli]))
         with file_io.FileWriter(
                 "simulated.postsynaptic.element.membrane.distances", opt) as f:
             f.writerows(table)
@@ -321,9 +318,10 @@ def save_output(profileli, opt):
                 short_dist_type = ''
             table = [["Run %d" % (n + 1) for n in range(0, opt.monte_carlo_runs)]]
             for pro in eval_proli:
-                table.extend(map(m_li,
-                                 *[p for li in pro.mcli
-                                   for p in li[ip_type]["%sdist" % short_dist_type]]))
+                table.extend(itertools.zip_longest(*[m(p, pro.pixelwidth)
+                                                     for li in pro.mcli
+                                                     for p in li[ip_type]["%sdist"
+                                                                          % short_dist_type]]))
             with file_io.FileWriter("%s.interpoint.%s.distances"
                                     % (ip_type.replace(" ", ""), dist_type), opt) as f:
                 f.writerows(table)
